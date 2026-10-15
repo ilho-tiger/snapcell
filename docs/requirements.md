@@ -121,7 +121,7 @@
 | FR-6.3 | Pixel size is derived, not set directly: `pixels = round(inches × DPI)` per side, swapped for orientation. Default: 4 × 5.5 in portrait at 300 DPI gives **1200 × 1650 px**. |
 | FR-6.4 | The DPI value is written to the JPEG metadata to declare the physical size. |
 | FR-6.5 | Each photo is cropped (if applicable) and then downscaled to its photo rectangle's pixel size. Default: about 343 × 224 px for 29 × 19 mm at 300 DPI. |
-| FR-6.6 | File names include the date range and sheet number, e.g. `diary_2026-10-01_2026-10-18_p1.jpg`. |
+| FR-6.6 | File names include the date range and sheet number, e.g. `diary_2026-10-01_2026-10-18_p1.jpg`. Generating the same range again produces the same name. The gallery makes it unique with its own suffix, e.g. `..._p1 (1).jpg`, and the app does not add a timestamp or run number (consistent with FR-2.9). |
 | FR-6.7 | Output is saved to the phone gallery. |
 | FR-6.8 | The app only produces the print-ready file. Direct printer support is out of scope. |
 | FR-6.9 | Configuration is validated before generation, and an invalid configuration is rejected with an error, never auto-corrected (silently changing DPI would contradict FR-6.4). All problems are reported together. Limits are listed in §4.1. |

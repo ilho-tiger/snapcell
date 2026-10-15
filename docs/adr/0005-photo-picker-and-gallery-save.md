@@ -60,6 +60,7 @@ Package status checked on pub.dev on 2026-10-15:
 ### Save
 
 - Call `Gal.putImage(path)` with the file produced by the encoder, passing the FR-6.6 file name. `putImage` stream-copies the file, so the JFIF density bytes patched for FR-6.4 are written to the gallery unmodified. `putImageBytes` is avoided: it re-guesses the format from the bytes and adds no benefit here.
+- File names are deterministic (FR-6.6), so regenerating the same range collides. The app does not add a timestamp or run number; `gal` de-duplicates and the gallery name gets a suffix such as `_p1 (1).jpg`. Record the name the gallery actually assigned rather than the requested one (ADR-0002 `saved(uri)`).
 - Pass `album: 'Snapcell'` so output is grouped and easy to find when printing. With API 36 this inserts into `Pictures/Snapcell` through `MediaStore` `RELATIVE_PATH`, with no permission.
 - Manifest: no storage permission and no `requestLegacyExternalStorage`. Do not copy those lines from `gal`'s README; they are for API 29 and below.
 - Access checks are unnecessary (`gal` returns true without a prompt above API 29). Still catch `GalException`.
@@ -80,7 +81,7 @@ Package status checked on pub.dev on 2026-10-15:
 Reviewed from docs and source only. Flutter is not installed in the authoring environment, so nothing below has been run.
 
 1. **FR-6.4 round trip**: save a JPEG with patched density (300 DPI) via `Gal.putImage`, pull it from the device, and confirm the density bytes are unchanged.
-2. **Scoped storage on Android 16**: confirm `Pictures/Snapcell/` appears in the system gallery with no permission prompt, and that a second save of the same file name gets a unique name rather than overwriting.
+2. **Scoped storage on Android 16**: confirm `Pictures/Snapcell/` appears in the system gallery with no permission prompt, and that a second save of the same file name gets a unique name rather than overwriting. Record the exact name produced (expected form `..._p1 (1).jpg`) and confirm the stored `saved(uri)` reflects it.
 3. **EXIF through the Photo Picker**: confirm `DateTimeOriginal` is present in the cached file returned by `pickMultiImage`. If it is stripped on some Android versions, FR-1.1's capture date falls back to "unknown" and ADR-0004's schema needs to allow null.
 4. **Orientation and resizing**: `image_picker` can resize natively with `maxWidth`/`maxHeight` (it subsamples while decoding since 0.8.13+25) and copies EXIF tags on resize. Confirm that EXIF orientation is applied correctly on a rotated portrait photo. If it is, native resizing to 1600 px could replace the isolate downscale in ADR-0004, which is simpler. This is a possible change to ADR-0004, not made here. Also verify, on a low-RAM Android device:
    - **Large inputs**: import a 50 MP photo. A pure-Dart isolate downscale decodes it to about 200 MB of RGBA and risks an out-of-memory kill; native resizing should not. Also time a batch import of about 20 photos.
