@@ -54,7 +54,7 @@
 | FR-1.4 | The user can set a favorite photo for a date while assigning photos, and can change it at any time. |
 | FR-1.5 | The user can add a short comment to each photo. Comments are stored in the app only and are **not printed** in v1. |
 | FR-1.6 | The user can remove a photo from a date, which deletes its stored copy. Replacing a photo is removing it and importing another in one action. Reordering candidates is not supported. |
-| FR-1.7 | Dates are stored with the full year, because a diary may span years. |
+| FR-1.7 | Dates are stored with the full year, because a diary may span years. Diary dates are date-only values (an ISO `YYYY-MM-DD` string or a day number), never a date-time, so timezone and DST changes cannot shift a photo to another day. The photo's capture date is metadata only and is nullable, because EXIF `DateTimeOriginal` may be missing. It is stored date-only as well. |
 
 ### 3.2 Generation flow
 
