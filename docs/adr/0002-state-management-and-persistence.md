@@ -57,6 +57,8 @@ To limit the learning surface while new to Flutter, start with the **plain River
 
 Generation is an explicit, cancellable state machine owned by a `GenerationController` (a Riverpod `Notifier`), not a chain of auto-recomputing providers. Rendering never reruns because an upstream value changed.
 
+`Rendering` runs in a foreground service and is resumable; see [ADR-0006](0006-background-generation.md), which supersedes the rendered-sheet lifecycle and the `sheets/` sweep below.
+
 States: `Configuring → ResolvingFavorites → ConfirmingEmpties → Rendering → Previewing → Saving → Done | Failed`. Cancel is allowed from any state before `Saving` completes. Transitions are plain Dart and are tested with `ProviderContainer`, without a widget tree.
 
 - **Favorites (FR-2.2):** the choice is written to the database immediately and stays if the user cancels later. It is a preference about a photo, not part of the output. The UI says so when asking.
@@ -70,7 +72,7 @@ A single `StartupReconciler` runs once per process start, after the database is 
 | Target | Delete | Keep |
 |---|---|---|
 | `photos/` (files directory) | every `*.tmp` file, and every file whose relative path is not referenced by a photo row | files referenced by a row |
-| `sheets/` (cache directory) | everything | nothing; render output is never needed across process starts |
+| `sheets/` (cache directory) | everything except `sheets/<jobId>/` for an existing job row ([ADR-0006](0006-background-generation.md)) | sheets of a resumable generation job |
 
 - The step only touches these two directories. It must not scan the cache root, because the image picker plugin keeps its picked files there and `retrieveLostData()` ([ADR-0005](0005-photo-picker-and-gallery-save.md)) may still need them.
 - Running before imports and generation are enabled means no in-flight file can be mistaken for an orphan.
@@ -99,3 +101,4 @@ A single `StartupReconciler` runs once per process start, after the database is 
 ## Related
 
 - ADR-0001: Application framework (Flutter)
+- ADR-0006: Background sheet generation
