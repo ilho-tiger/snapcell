@@ -72,6 +72,9 @@
 | FR-2.10 | A favorite chosen during generation (FR-2.2) stays saved even if the user cancels before saving. The prompt tells the user this. |
 | FR-2.11 | The user can cancel generation at any step before saving completes. Cancelling discards the rendered sheets. |
 | FR-2.12 | If saving fails partway, sheets already saved are kept. The app reports which sheets failed and lets the user retry only those, or discard them. |
+| FR-2.13 | Rendering does not block the UI and continues while the app is in the background or the screen is off. When rendering finishes, the app posts a notification that opens the preview (FR-2.8). Nothing is saved to the gallery without the preview step. See [ADR-0006](adr/0006-background-generation.md). |
+| FR-2.14 | If Android kills the app during rendering, the next launch resumes the same generation and re-renders only unfinished sheets. A generation whose photo has since been removed fails with the affected dates listed, rather than skipping them. Rendered sheets awaiting preview also survive a kill. |
+| FR-2.15 | While rendering, a progress notification shows the current sheet and offers Cancel (FR-2.11). If notification permission is denied, generation still runs and the result is shown in the app on the next launch. |
 
 ### 3.3 Layout and packing
 
