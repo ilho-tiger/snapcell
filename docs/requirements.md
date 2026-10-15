@@ -98,7 +98,7 @@
 | FR-4.2 | The default format is month-text/day without the year (e.g. `Oct/15`). The format is configurable. |
 | FR-4.3 | A label sits in its own small cell directly above the photo cell, outside the photo rectangle, so it never reduces photo height. |
 | FR-4.4 | Label cell height is at most 3 mm (about 35 px at 300 DPI) and is configurable. |
-| FR-4.5 | The packer treats label cell + photo cell as one unit. Enabling labels therefore reduces the number of units per sheet. |
+| FR-4.5 | The packer treats label cell + photo cell as one unit. Enabling labels therefore reduces the number of units per sheet. When labels are off, no label space is reserved: a unit is the photo cell alone, and the freed height is available to the packer (more rows, or a cell that would not fit with labels). |
 
 ### 3.5 Photo sizing and cropping
 
@@ -166,7 +166,7 @@ Enforced by `sheet_engine` (ADR-0003). A configuration that violates any rule is
 | Margins, spacing, inset | 0 or greater |
 | Photo inset | `2 × inset` is less than both cell width and cell height, so the photo rectangle is not empty (FR-5.1) |
 | Label cell height | Greater than 0 and at most 3 mm (FR-4.4), and less than the cell height |
-| Cell fit | One unit (cell, plus label cell if labels are on) fits in the paper minus margins in the chosen orientation, so units per sheet is at least 1 (FR-3.10) |
+| Cell fit | One unit (the cell alone when labels are off; cell plus label cell when on, FR-4.5) fits in the paper minus margins in the chosen orientation, so units per sheet is at least 1 (FR-3.10) |
 
 ---
 
