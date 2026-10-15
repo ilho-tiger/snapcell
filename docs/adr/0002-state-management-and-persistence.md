@@ -88,10 +88,10 @@ A single `StartupReconciler` runs once per process start, after the database is 
 - The generation controller must be designed and tested as a state machine; Riverpod does not provide that structure by itself.
 - The cache directory holds large temporary files during preview. Cleanup on cancel and done, and the startup reconciliation, are part of the design.
 - The pure-Dart layout engine (`sheet_engine`) does not depend on either package.
+- drift's Flutter setup (checked 2026-10-15 against drift.simonbinder.eu/setup) uses `drift`, `drift_flutter` and `path_provider`, plus `drift_dev` and `build_runner` as dev dependencies. Do not add `sqlite3_flutter_libs`: it is end-of-life (`0.6.0+eol`) and only applies to `package:sqlite3` 2.x. Older drift guides still list it.
 
 ## Open items
 
-- `sqlite3_flutter_libs` is marked end-of-life (`0.6.0+eol`) on pub.dev. Older drift setup guides depend on it. Confirm drift's current Flutter setup against its official docs before adding dependencies.
 - The image picker and gallery-save packages, and their Android scoped-storage verification, are covered in [ADR-0005](0005-photo-picker-and-gallery-save.md).
 
 ## Rejected alternative
