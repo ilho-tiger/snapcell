@@ -58,7 +58,7 @@ To limit the learning surface while new to Flutter, start with the **plain River
 - Two more concepts to learn at once (Riverpod and drift) alongside Flutter itself.
 - A `build_runner` step is required for drift's generated code.
 - Repository interfaces sit between drift and the rest of the app, so the layer can be tested and replaced independently.
-- The pure-Dart layout engine (`layout_core`) does not depend on either package.
+- The pure-Dart layout engine (`sheet_engine`) does not depend on either package.
 
 ## Open items
 

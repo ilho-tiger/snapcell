@@ -47,7 +47,7 @@ Rejected:
 
 - `dart:ui` cannot encode JPEG (it exposes raw RGBA and PNG). The RGBA bytes are encoded in a background `Isolate`, for example with the pure-Dart `image` package, with a native-backed encoder as the fallback.
 - DPI metadata (FR-6.4) is applied by patching the JFIF density bytes after encoding, unless the chosen encoder already supports it. To be checked in a spike before relying on either answer.
-- The packing and layout engine lives in a pure-Dart package, `packages/layout_core`, with no Flutter imports. It is tested with `dart test` and is independent of the UI framework.
+- The packing and layout engine lives in a pure-Dart package, `packages/sheet_engine`, with no Flutter imports. It is tested with `dart test` and is independent of the UI framework.
 - Localization uses Flutter's built-in `gen_l10n` with ARB files. The app name is an ARB string (FR-7.3).
 - The photo picker and gallery-save packages are chosen in [ADR-0005](0005-photo-picker-and-gallery-save.md), which stays Proposed until the on-device checks listed there pass.
 - State and persistence choices are recorded in ADR-0002.
