@@ -1,6 +1,6 @@
 # ADR-0004: Photo storage — copy in, downscaled
 
-- Status: Accepted
+- Status: Accepted, pending #3 (EXIF capture date may be missing, which would make it nullable; ADR-0005 item 4 may replace the isolate downscale; do not build on these points as settled)
 - Date: 2026-10-15
 - Resolves: OQ-2 in `docs/requirements.md`
 
