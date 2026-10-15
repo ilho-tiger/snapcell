@@ -81,8 +81,8 @@
 | FR-3.5 | Cut guides are drawn centered in the gap between photos. Cutting errors then land in white space, not on the image. |
 | FR-3.6 | Default page orientation is portrait (configurable). |
 | FR-3.7 | Printable margins are set per side (top, bottom, left, right), each defaulting to 3 mm and configurable. Spacing is also configurable (FR-3.4). |
-| FR-3.9 | The grid of cells is centered within the area left after the margins. Leftover space is split evenly on opposite sides. |
 | FR-3.8 | Cut guides are on by default (configurable). |
+| FR-3.9 | The grid of cells is centered within the area left after the margins. Leftover space is split evenly on opposite sides. |
 
 **Reference capacity** (4 × 5.5 in paper, 29 × 19 mm photos, 2 mm gaps, before printer margins): at most 18 cells in portrait (3 × 6) or 16 in landscape (4 × 4).
 
