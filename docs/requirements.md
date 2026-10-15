@@ -104,7 +104,7 @@
 | FR-5.3 | Phone photos are usually 4:3 or 3:4, and the cell aspect ratio is configurable, so a photo may not match the photo rectangle. When cropping is needed, the photo is scaled until it covers the rectangle ("zoom to fit") and cropped around its center. |
 | FR-5.4 | Portrait photos are not rotated. They are cropped like any other mismatch. |
 | FR-5.5 | There is no manual pan or zoom. |
-| FR-5.6 | Whether photos are cropped or fit without cropping has a system-wide default (configurable). The user can change it per photo before generation. |
+| FR-5.6 | v1 supports crop (cover) only. A fit-without-cropping mode, with fill bars and a per-photo choice, is out of scope (§5). |
 
 ### 3.6 Output
 
@@ -142,7 +142,6 @@ A single global configuration applies in v1.
 | Printable margins | Reasonable defaults, to be set | Configurable |
 | Page orientation | Portrait | Configurable |
 | Cut guides | On | Configurable |
-| Crop vs. fit | Crop (default to be confirmed) | System-wide default, overridable per photo |
 | Output DPI | 300 | Configurable |
 | Date labels | Off (default to be confirmed) | Optional |
 | Label format | `Mon/D` (e.g. Oct/15) | Configurable |
@@ -160,6 +159,7 @@ A single global configuration applies in v1.
 - Reordering candidate photos.
 - Backup or export of associations, favorites, and comments. Uninstalling the app loses this data.
 - Manual pan or zoom of photos.
+- Fit-without-cropping mode (contain), including its fill colour and a per-photo crop/fit choice. v1 always crops (cover).
 - UI languages other than English.
 - iPhone support (Android first).
 
@@ -176,8 +176,7 @@ A single global configuration applies in v1.
 
 ## 7. Gaps noted in the source (for confirmation)
 
-- **Fit without cropping:** the source doesn't say how the leftover space is filled (e.g. white bars) when a photo is fitted instead of cropped.
-- **Default crop vs. fit:** the source says it is configurable but names no default. I assumed crop, to match the zoom-to-fit rule.
+- **Fit without cropping and default crop vs. fit (resolved):** v1 supports crop (cover) only (FR-5.6), so the fill colour and the default no longer arise. Portrait photos are cropped to the landscape cell (FR-5.4) and lose roughly half of their height.
 - **Label default:** the source says labels are optional but not whether they are on by default. I assumed off.
 - **Margin default values:** "reasonable defaults" are not specified.
 - **Missing photo at generation (resolved):** the source didn't say what happens if a referenced photo is gone when generating. Photos are now copied into the app at import (OQ-2, [ADR-0004](adr/0004-photo-storage.md)), so this case no longer exists.

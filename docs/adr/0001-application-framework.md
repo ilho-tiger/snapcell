@@ -11,7 +11,7 @@ Snapcell is a phone app, Android first (US-2, §1.3). iPhone is a "maybe someday
 Requirements that constrain the choice:
 
 - Pick photos from the phone and save generated JPEGs to the gallery (FR-6.7), which depends on platform APIs.
-- Decode phone photos, crop or fit, downscale, composite a 1200 × 1650 px sheet, draw labels and cut guides, and encode JPEG with the DPI declared in metadata (FR-6.1 to FR-6.5). This is memory-sensitive and must stay off the UI thread.
+- Decode phone photos, crop to cover, downscale, composite a 1200 × 1650 px sheet, draw labels and cut guides, and encode JPEG with the DPI declared in metadata (FR-6.1 to FR-6.5). This is memory-sensitive and must stay off the UI thread.
 - The preview (FR-2.8) must not drift from the final output, so both should share one render path.
 - All user-facing strings are translatable, including the app name (FR-7.2, FR-7.3).
 

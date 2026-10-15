@@ -52,7 +52,7 @@ The name `sheet_engine` was chosen over `layout_core` because "layout" collides 
 | mm to px math (FR-6.3) | Riverpod providers (ADR-0002) |
 | Packing: units per sheet, row and column placement, sheet count | drift database and repositories (ADR-0002) |
 | Cell geometry: photo rectangle, label cell, cut-guide lines | `CustomPainter` drawing sheets, shared by preview and export |
-| Crop-rectangle math (cover, center crop) and fit-mode math | Photo picker, gallery save, isolates, JPEG encode |
+| Crop-rectangle math (cover, center crop) | Photo picker, gallery save, isolates, JPEG encode |
 | Date-range and label-formatting logic | i18n (ARB files) |
 
 The engine returns plain data (for example, "sheet 1, unit 7 at x, y, w, h in px, label rect ..."). It never draws. The `app` painter reads that data and draws it.
