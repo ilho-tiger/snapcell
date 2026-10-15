@@ -179,7 +179,7 @@ Enforced by `sheet_engine` (ADR-0003). A configuration that violates any rule is
 - Overwriting old sheets, and tracking what has been printed.
 - Using later dates as filler to complete a partly empty last row.
 - Reordering candidate photos.
-- Backup or export of associations, favorites, and comments. Uninstalling the app loses this data.
+- Backup or export of associations, favorites, and comments. Uninstalling the app loses this data. Android Auto Backup is disabled so a restore can never bring back the database without the photo files ([ADR-0004](adr/0004-photo-storage.md)).
 - Manual pan or zoom of photos.
 - Fit-without-cropping mode (contain), including its fill colour and a per-photo crop/fit choice. v1 always crops (cover).
 - UI languages other than English.
@@ -201,4 +201,4 @@ Enforced by `sheet_engine` (ADR-0003). A configuration that violates any rule is
 - **Fit without cropping and default crop vs. fit (resolved):** v1 supports crop (cover) only (FR-5.6), so the fill colour and the default no longer arise. Portrait photos are cropped to the landscape cell (FR-5.4) and lose roughly half of their height.
 - **Label default:** the source says labels are optional but not whether they are on by default. I assumed off.
 - **Margin defaults and grid placement (resolved):** the source gave no values. v1 uses four per-side margins of 3 mm (FR-3.7), with the grid centered in the remaining area (FR-3.9). The 3 mm default is an estimate. It keeps the reference capacity (18 portrait, 16 landscape) but has not been checked against a real printer.
-- **Missing photo at generation (resolved):** the source didn't say what happens if a referenced photo is gone when generating. Photos are now copied into the app at import (OQ-2, [ADR-0004](adr/0004-photo-storage.md)), so this case no longer exists.
+- **Missing photo at generation (resolved):** the source didn't say what happens if a referenced photo is gone when generating. Photos are now copied into the app at import (OQ-2, [ADR-0004](adr/0004-photo-storage.md)), so this case no longer exists. Android Auto Backup is disabled, so a restore cannot produce database rows whose files are missing.

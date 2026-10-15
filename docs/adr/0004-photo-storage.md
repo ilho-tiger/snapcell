@@ -30,9 +30,10 @@ Facts that shape the decision:
 **Copy each photo into the app's private storage at import time, downscaled to about 1600 px on the long edge.**
 
 - Downscaling runs in a background isolate so the UI stays responsive.
-- The database stores the file path, the original capture date (metadata only, FR-1.1), and the comment (FR-1.5).
+- The database stores the file path relative to the app's files directory (for example `photos/<id>.jpg`), resolved at read time, the original capture date (metadata only, FR-1.1), and the comment (FR-1.5).
 - Each stored copy belongs to exactly one date. Picking the same gallery photo for another date is a separate import (FR-1.3).
 - Generation reads only the stored copy. It never touches the gallery.
+- Android Auto Backup is disabled (`android:allowBackup="false"`). With backup on, Android could restore the database without the photo files, or only some of them, and reintroduce dangling paths. Cloud backup also has a quota that a photo library would exceed, which fails silently. Backup is out of scope for v1 (§5); if added later it should be a deliberate feature.
 
 1600 px on the long edge is far more than the roughly 343 × 224 px the default output needs. It also leaves headroom for larger cells or higher DPI settings: for example, a 100 mm cell at 400 DPI needs about 1575 px.
 
@@ -43,6 +44,7 @@ Facts that shape the decision:
 - Storage grows by roughly 300–500 KB per imported photo. This is acceptable for a diary app.
 - If the user configures a cell or DPI so large that it exceeds 1600 px, output is upscaled and softer. The cap is a documented limit, and the value can be raised later if needed (existing copies would stay at their original cap).
 - Deleting the original from the gallery has no effect on the app.
+- Reinstalling or moving to a new device starts empty, the same as uninstalling (§5). Relative paths keep a later backup or export feature possible without a data migration.
 - Because the stored copy is lossy-downscaled, re-importing is the only way to regain more resolution.
 - Removing a photo from its date deletes its stored copy (FR-1.6), so no orphan files remain.
 - Importing the same gallery photo twice creates two copies unless de-duplicated. De-duplication is not in scope for v1.
