@@ -36,6 +36,8 @@ Two places (`.fvmrc`, CI image tag) must stay in sync. A CI job that compares th
 - CI regenerates them anyway, so a stale committed file could pass review and still differ from what CI builds.
 - The cost is a required step after clone and after schema or annotation changes. This is documented in the README.
 
+The generator dependencies are `drift_dev` and `build_runner` (dev dependencies). The runtime side is `drift_flutter`; `sqlite3_flutter_libs` is end-of-life and is not used (ADR-0002).
+
 Exceptions that **are** committed:
 
 - **drift schema snapshots** (`drift_schemas/`, from `dart run drift_dev schema dump`). They are inputs for migration tests (ADR-0002), not build output.
