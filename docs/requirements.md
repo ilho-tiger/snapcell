@@ -13,6 +13,7 @@
 
 ### 1.3 Goals
 - Work on a phone alone, with no computer needed. Android first, iPhone later.
+- Minimum supported Android version is 16 (API 36). See [ADR-0005](adr/0005-photo-picker-and-gallery-save.md).
 - Support different photo paper sizes and diary cell sizes through configuration.
 
 ### 1.4 Glossary

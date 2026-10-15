@@ -63,7 +63,7 @@ To limit the learning surface while new to Flutter, start with the **plain River
 ## Open items
 
 - `sqlite3_flutter_libs` is marked end-of-life (`0.6.0+eol`) on pub.dev. Older drift setup guides depend on it. Confirm drift's current Flutter setup against its official docs before adding dependencies.
-- Pin exact versions and verify Android scoped-storage behavior for the image picker and gallery-save packages in a separate ADR.
+- The image picker and gallery-save packages, and their Android scoped-storage verification, are covered in [ADR-0005](0005-photo-picker-and-gallery-save.md).
 
 ## Rejected alternative
 
