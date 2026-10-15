@@ -60,8 +60,23 @@ Generation is an explicit, cancellable state machine owned by a `GenerationContr
 States: `Configuring → ResolvingFavorites → ConfirmingEmpties → Rendering → Previewing → Saving → Done | Failed`. Cancel is allowed from any state before `Saving` completes. Transitions are plain Dart and are tested with `ProviderContainer`, without a widget tree.
 
 - **Favorites (FR-2.2):** the choice is written to the database immediately and stays if the user cancels later. It is a preference about a photo, not part of the output. The UI says so when asking.
-- **Rendered sheets:** `Rendering` writes each sheet to a temp file in the app cache directory. Memory is not used, because a decoded A4 sheet at print DPI is tens of MB and several sheets risk an Android out-of-memory kill. The controller holds the file list. Temp files are deleted on cancel and on done, and orphans are swept at startup.
+- **Rendered sheets:** `Rendering` writes each sheet to a temp file in the app cache directory. Memory is not used, because a decoded A4 sheet at print DPI is tens of MB and several sheets risk an Android out-of-memory kill. The controller holds the file list. Temp files live in a dedicated subdirectory (`sheets/`), are deleted on cancel and on done, and orphans are swept by the startup reconciliation step below.
 - **Save:** sheets are saved sequentially, with per-sheet status `saved(uri)` or `failed(error)`. Retry re-attempts only failed sheets from the temp files and does not re-render. Sheets already saved are not rolled back, because gallery deletion is not reliable through the save API. Every generation writes new files (FR-2.9), so retry cannot overwrite earlier output. `Discard` on failure deletes the temp files. Save semantics follow [ADR-0005](0005-photo-picker-and-gallery-save.md), whose device verification is still open.
+
+## Startup reconciliation
+
+A single `StartupReconciler` runs once per process start, after the database is opened and before the UI accepts imports or generation. It removes files that no longer belong to anything. Crashes can happen between a file write and its database row, or between a row delete and its file delete, so cleanup cannot rely on the happy path.
+
+| Target | Delete | Keep |
+|---|---|---|
+| `photos/` (files directory) | every `*.tmp` file, and every file whose relative path is not referenced by a photo row | files referenced by a row |
+| `sheets/` (cache directory) | everything | nothing; render output is never needed across process starts |
+
+- The step only touches these two directories. It must not scan the cache root, because the image picker plugin keeps its picked files there and `retrieveLostData()` ([ADR-0005](0005-photo-picker-and-gallery-save.md)) may still need them.
+- Running before imports and generation are enabled means no in-flight file can be mistaken for an orphan.
+- Each deletion is independent. A failure is logged and retried at the next start; it never blocks startup.
+- It deletes files only. It never deletes or edits rows. A row without a file is reported (logged) and surfaced as an unavailable photo; see [ADR-0004](0004-photo-storage.md).
+- The write orders that make this sufficient (file before row on import, row before file on remove) are defined in ADR-0004.
 
 ## Consequences
 
@@ -69,7 +84,7 @@ States: `Configuring → ResolvingFavorites → ConfirmingEmpties → Rendering 
 - A `build_runner` step is required for drift's generated code.
 - Repository interfaces sit between drift and the rest of the app, so the layer can be tested and replaced independently.
 - The generation controller must be designed and tested as a state machine; Riverpod does not provide that structure by itself.
-- The cache directory holds large temporary files during preview. Cleanup on cancel, done and startup is part of the design.
+- The cache directory holds large temporary files during preview. Cleanup on cancel and done, and the startup reconciliation, are part of the design.
 - The pure-Dart layout engine (`sheet_engine`) does not depend on either package.
 
 ## Open items
