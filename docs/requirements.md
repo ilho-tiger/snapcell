@@ -87,6 +87,7 @@
 | FR-3.8 | Cut guides are on by default (configurable). |
 | FR-3.9 | The grid of cells is centered within the area left after the margins. Leftover space is split evenly on opposite sides. |
 | FR-3.10 | A configuration that cannot place at least one unit per sheet is rejected with an error (see FR-6.9). The app never silently produces zero units per sheet or shrinks the cell to fit. |
+| FR-3.11 | The packer maximizes units per sheet using these counts, with the orientation applied to paper width and height: `usable_w = paper_w − left − right`, `usable_h = paper_h − top − bottom`, `unit_w = cell_w`, `unit_h = cell_h` (plus label cell height when labels are on, FR-4.5), `cols = floor((usable_w + spacing) / (unit_w + spacing))`, `rows = floor((usable_h + spacing) / (unit_h + spacing))`, units per sheet = `cols × rows`. Spacing applies between units only, not at the edges, and not between a label cell and its photo cell. |
 
 **Reference capacity** (4 × 5.5 in paper, 29 × 19 mm photos, 2 mm gaps, before printer margins): at most 18 cells in portrait (3 × 6) or 16 in landscape (4 × 4).
 
