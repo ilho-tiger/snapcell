@@ -47,7 +47,7 @@ Two drift tables, owned by a `GenerationJobRepository`:
 
 | Table | Columns | Notes |
 |---|---|---|
-| `generation_job` | id, state, range start/end, config snapshot, render plan, created at | `state`: `rendering`, `ready`, `saving`, `failed` |
+| `generation_job` | id, state, range start/end, config snapshot, render plan, failure, created at | `state`: `rendering`, `ready`, `saving`, `failed`. `failure` is null unless `failed` (see ADR-0008) |
 | `generation_sheet` | job id, sheet index, status, saved uri, error | `status`: `pending`, `rendered`, `saved`, `failed` |
 
 At most one job exists at a time. Starting a new generation while a job exists asks the user to resume or discard it.
@@ -116,3 +116,5 @@ Tracked as the spike in [issue #5](https://gitlab.com/ilho-song/snapcell/-/work_
 - ADR-0002: State management and persistence (Riverpod + drift)
 - ADR-0004: Photo storage — copy in, downscaled
 - ADR-0005: Photo picker and gallery save
+- ADR-0008: Generation state machine and render-output lifecycle
+- ADR-0009: Data model

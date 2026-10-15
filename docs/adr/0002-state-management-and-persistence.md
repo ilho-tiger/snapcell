@@ -5,7 +5,7 @@
 
 ## Context
 
-Snapcell is a local-only, single-user Flutter app (Android first). There is no backend. Part of the state is a cheap derived chain (configuration → date range → favorites → packed layout). Generation itself is not derived: it is a user-driven flow (favorite choice, empty-date confirmation, preview, save) around an expensive render. Persisted data is small and relational: dates, photos (each belonging to exactly one date), a favorite flag, comments, and one global config.
+Snapcell is a local-only, single-user Flutter app (Android first). There is no backend. Part of the state is a cheap derived chain (configuration → date range → favorites → packed layout). Generation itself is not derived: it is a user-driven flow (favorite choice, empty-date confirmation, preview, save) around an expensive render. Persisted data is small and relational: dates, photos (each belonging to exactly one date), a favorite per date, comments, and one global config.
 
 The author is new to Flutter and Dart but fluent in C#, TypeScript and Go. The project follows TDD, so the data and state layers should be testable without an emulator.
 
@@ -57,7 +57,7 @@ To limit the learning surface while new to Flutter, start with the **plain River
 
 Generation is an explicit, cancellable state machine owned by a `GenerationController` (a Riverpod `Notifier`), not a chain of auto-recomputing providers. Rendering never reruns because an upstream value changed.
 
-`Rendering` runs in a foreground service and is resumable; see [ADR-0006](0006-background-generation.md), which supersedes the rendered-sheet lifecycle and the `sheets/` sweep below.
+`Rendering` runs in a foreground service and is resumable; see [ADR-0006](0006-background-generation.md), which supersedes the rendered-sheet lifecycle and the `sheets/` sweep below. The consolidated transition table is in [ADR-0008](0008-generation-state-machine-and-output-lifecycle.md), and the schema is in [ADR-0009](0009-data-model.md).
 
 States: `Configuring → ResolvingFavorites → ConfirmingEmpties → Rendering → Previewing → Saving → Done | Failed`. Cancel is allowed from any state before `Saving` completes. Transitions are plain Dart and are tested with `ProviderContainer`, without a widget tree.
 
@@ -102,3 +102,5 @@ A single `StartupReconciler` runs once per process start, after the database is 
 
 - ADR-0001: Application framework (Flutter)
 - ADR-0006: Background sheet generation
+- ADR-0008: Generation state machine and render-output lifecycle
+- ADR-0009: Data model
