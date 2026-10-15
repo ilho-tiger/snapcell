@@ -69,6 +69,9 @@
 | FR-2.7 | Each range generation starts on a fresh sheet. A partly empty last row is acceptable. Dates outside the range are never used as filler. |
 | FR-2.8 | Before saving, the app shows a read-only preview of the generated sheets. |
 | FR-2.9 | Each generation produces new files. It never overwrites earlier output. |
+| FR-2.10 | A favorite chosen during generation (FR-2.2) stays saved even if the user cancels before saving. The prompt tells the user this. |
+| FR-2.11 | The user can cancel generation at any step before saving completes. Cancelling discards the rendered sheets. |
+| FR-2.12 | If saving fails partway, sheets already saved are kept. The app reports which sheets failed and lets the user retry only those, or discard them. |
 
 ### 3.3 Layout and packing
 
