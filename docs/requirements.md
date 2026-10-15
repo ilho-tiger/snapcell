@@ -92,13 +92,13 @@
 | FR-3.10 | A configuration that cannot place at least one unit per sheet is rejected with an error (see FR-6.9). The app never silently produces zero units per sheet or shrinks the cell to fit. |
 | FR-3.11 | The packer maximizes units per sheet using these counts, with the orientation applied to paper width and height: `usable_w = paper_w − left − right`, `usable_h = paper_h − top − bottom`, `unit_w = cell_w`, `unit_h = cell_h` (plus label cell height when labels are on, FR-4.5), `cols = floor((usable_w + spacing) / (unit_w + spacing))`, `rows = floor((usable_h + spacing) / (unit_h + spacing))`, units per sheet = `cols × rows`. Spacing applies between units only, not at the edges, and not between a label cell and its photo cell. |
 
-**Reference capacity** (4 × 5.5 in paper, 29 × 19 mm photos, 2 mm gaps, before printer margins): at most 18 cells in portrait (3 × 6) or 16 in landscape (4 × 4).
+**Reference capacity** (4 × 5.5 in paper, 29 × 19 mm photos, 2 mm gaps, before printer margins, labels off): at most 18 cells in portrait (3 × 6) or 16 in landscape (4 × 4).
 
 ### 3.4 Date labels (optional)
 
 | ID | Requirement |
 |---|---|
-| FR-4.1 | Date labels can be turned on or off. |
+| FR-4.1 | Date labels can be turned on or off. They are on by default. |
 | FR-4.2 | The default format is month-text/day without the year (e.g. `Oct/15`). The format is configurable. |
 | FR-4.3 | A label sits in its own small cell directly above the photo cell, outside the photo rectangle, so it never reduces photo height. |
 | FR-4.4 | Label cell height is at most 3 mm (about 35 px at 300 DPI) and is configurable. |
@@ -153,7 +153,7 @@ A single global configuration applies in v1.
 | Page orientation | Portrait | Configurable |
 | Cut guides | On | Configurable |
 | Output DPI | 300 | Configurable |
-| Date labels | Off (default to be confirmed) | Optional |
+| Date labels | On | Configurable |
 | Label format | `Mon/D` (e.g. Oct/15) | Configurable |
 | Label cell height | ≤ 3 mm | Configurable |
 
@@ -202,6 +202,6 @@ Enforced by `sheet_engine` (ADR-0003). A configuration that violates any rule is
 ## 7. Gaps noted in the source (for confirmation)
 
 - **Fit without cropping and default crop vs. fit (resolved):** v1 supports crop (cover) only (FR-5.6), so the fill colour and the default no longer arise. Portrait photos are cropped to the landscape cell (FR-5.4) and lose roughly half of their height.
-- **Label default:** the source says labels are optional but not whether they are on by default. I assumed off.
+- **Label default (resolved):** the source says labels are optional but not whether they are on by default. Decided: on by default (FR-4.1).
 - **Margin defaults and grid placement (resolved):** the source gave no values. v1 uses four per-side margins of 3 mm (FR-3.7), with the grid centered in the remaining area (FR-3.9). The 3 mm default is an estimate. It keeps the reference capacity (18 portrait, 16 landscape) but has not been checked against a real printer.
 - **Missing photo at generation (resolved):** the source didn't say what happens if a referenced photo is gone when generating. Photos are now copied into the app at import (OQ-2, [ADR-0004](adr/0004-photo-storage.md)), so this case no longer exists. Android Auto Backup is disabled, so a restore cannot produce database rows whose files are missing.
