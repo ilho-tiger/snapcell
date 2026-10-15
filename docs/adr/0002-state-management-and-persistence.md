@@ -68,3 +68,7 @@ To limit the learning surface while new to Flutter, start with the **plain River
 ## Rejected alternative
 
 `provider` + `sqflite`: faster to a first working screen and lighter, but async derived state gets awkward around the render and generation flow, and schema migrations are hand-written. Judged a worse fit for this app even though its schema is small.
+
+## Related
+
+- ADR-0001: Application framework (Flutter)

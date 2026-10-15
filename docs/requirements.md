@@ -166,10 +166,10 @@ A single global configuration applies in v1.
 
 ## 6. Open questions
 
-| # | Question | Notes |
-|---|---|---|
-| OQ-1 | Implementation technology: Android native, Flutter, or PWA? | Undecided. |
-| OQ-2 | Are photos copied into the app, or only referenced? | Native Android or Flutter: reference makes sense (on-device app). If a referenced photo disappears from the gallery, show a warning. PWA: referencing may not be possible, so copying may be required. This depends on OQ-1. |
+| # | Question | Status | Resolution |
+|---|---|---|---|
+| OQ-1 | Implementation technology: Android native, Flutter, or PWA? | Resolved | Flutter. See [ADR-0001](adr/0001-application-framework.md). |
+| OQ-2 | Are photos copied into the app, or only referenced? | Resolved | See [ADR-0004](adr/0004-photo-storage.md). Photos are copied into the app's private storage, downscaled to about 1600 px on the long edge at import. The printed photo is only about 343 × 224 px, so this is more than enough, and it removes the case of a referenced photo disappearing from the gallery. A very large cell or DPI setting could exceed the stored resolution; the stored size is capped. |
 
 ---
 
@@ -179,4 +179,4 @@ A single global configuration applies in v1.
 - **Default crop vs. fit:** the source says it is configurable but names no default. I assumed crop, to match the zoom-to-fit rule.
 - **Label default:** the source says labels are optional but not whether they are on by default. I assumed off.
 - **Margin default values:** "reasonable defaults" are not specified.
-- **Missing photo at generation:** the source doesn't say what happens if a referenced photo is gone when generating. It only mentions a warning, for the referenced-photo case.
+- **Missing photo at generation (resolved):** the source didn't say what happens if a referenced photo is gone when generating. Photos are now copied into the app at import (OQ-2, [ADR-0004](adr/0004-photo-storage.md)), so this case no longer exists.
