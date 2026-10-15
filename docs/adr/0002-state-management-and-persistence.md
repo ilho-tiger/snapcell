@@ -5,7 +5,7 @@
 
 ## Context
 
-Snapcell is a local-only, single-user Flutter app (Android first). There is no backend. State is mostly a derived chain: configuration → date range → favorites → packed layout → rendered sheets. Persisted data is small and relational: dates, photos (each belonging to exactly one date), a favorite flag, comments, and one global config.
+Snapcell is a local-only, single-user Flutter app (Android first). There is no backend. Part of the state is a cheap derived chain (configuration → date range → favorites → packed layout). Generation itself is not derived: it is a user-driven flow (favorite choice, empty-date confirmation, preview, save) around an expensive render. Persisted data is small and relational: dates, photos (each belonging to exactly one date), a favorite flag, comments, and one global config.
 
 The author is new to Flutter and Dart but fluent in C#, TypeScript and Go. The project follows TDD, so the data and state layers should be testable without an emulator.
 
@@ -47,17 +47,29 @@ Package status checked on pub.dev on 2026-10-15; all four candidates are activel
 
 Use **Riverpod** for state management and **drift** (SQLite) for persistence.
 
-- Riverpod fits the derived chain (config → range → layout → render), where automatic recomputation replaces hand-rolled wiring that `provider` would need.
+- Riverpod fits the cheap derived state (config → range → layout), where automatic recomputation replaces hand-rolled wiring that `provider` would need. Rendering is excluded from that chain; see [Generation flow](#generation-flow).
 - drift's typed schema, migration tooling and in-memory tests allow the repository layer to be tested under `dart test` without an emulator, in line with the TDD default.
 - drift exposes watchable queries as `Stream`s, which Riverpod consumes directly.
 
 To limit the learning surface while new to Flutter, start with the **plain Riverpod API without `riverpod_generator`**. Revisit codegen later if the boilerplate becomes a burden.
+
+## Generation flow
+
+Generation is an explicit, cancellable state machine owned by a `GenerationController` (a Riverpod `Notifier`), not a chain of auto-recomputing providers. Rendering never reruns because an upstream value changed.
+
+States: `Configuring → ResolvingFavorites → ConfirmingEmpties → Rendering → Previewing → Saving → Done | Failed`. Cancel is allowed from any state before `Saving` completes. Transitions are plain Dart and are tested with `ProviderContainer`, without a widget tree.
+
+- **Favorites (FR-2.2):** the choice is written to the database immediately and stays if the user cancels later. It is a preference about a photo, not part of the output. The UI says so when asking.
+- **Rendered sheets:** `Rendering` writes each sheet to a temp file in the app cache directory. Memory is not used, because a decoded A4 sheet at print DPI is tens of MB and several sheets risk an Android out-of-memory kill. The controller holds the file list. Temp files are deleted on cancel and on done, and orphans are swept at startup.
+- **Save:** sheets are saved sequentially, with per-sheet status `saved(uri)` or `failed(error)`. Retry re-attempts only failed sheets from the temp files and does not re-render. Sheets already saved are not rolled back, because gallery deletion is not reliable through the save API. Every generation writes new files (FR-2.9), so retry cannot overwrite earlier output. `Discard` on failure deletes the temp files. Save semantics follow [ADR-0005](0005-photo-picker-and-gallery-save.md), whose device verification is still open.
 
 ## Consequences
 
 - Two more concepts to learn at once (Riverpod and drift) alongside Flutter itself.
 - A `build_runner` step is required for drift's generated code.
 - Repository interfaces sit between drift and the rest of the app, so the layer can be tested and replaced independently.
+- The generation controller must be designed and tested as a state machine; Riverpod does not provide that structure by itself.
+- The cache directory holds large temporary files during preview. Cleanup on cancel, done and startup is part of the design.
 - The pure-Dart layout engine (`sheet_engine`) does not depend on either package.
 
 ## Open items
