@@ -31,7 +31,7 @@ Facts that shape the decision:
 
 - Downscaling runs in a background isolate so the UI stays responsive.
 - The database stores the file path, the original capture date (metadata only, FR-1.1), and the comment (FR-1.5).
-- The same stored copy is reused when a photo is associated with several dates (FR-1.3).
+- Each stored copy belongs to exactly one date. Picking the same gallery photo for another date is a separate import (FR-1.3).
 - Generation reads only the stored copy. It never touches the gallery.
 
 1600 px on the long edge is far more than the roughly 343 × 224 px the default output needs. It also leaves headroom for larger cells or higher DPI settings: for example, a 100 mm cell at 400 DPI needs about 1575 px.
@@ -44,7 +44,7 @@ Facts that shape the decision:
 - If the user configures a cell or DPI so large that it exceeds 1600 px, output is upscaled and softer. The cap is a documented limit, and the value can be raised later if needed (existing copies would stay at their original cap).
 - Deleting the original from the gallery has no effect on the app.
 - Because the stored copy is lossy-downscaled, re-importing is the only way to regain more resolution.
-- A photo removed from every date can leave an orphan file. Cleanup of unreferenced copies is needed when a photo's last association is removed.
+- Removing a photo from its date deletes its stored copy (FR-1.6), so no orphan files remain.
 - Importing the same gallery photo twice creates two copies unless de-duplicated. De-duplication is not in scope for v1.
 
 ## Related

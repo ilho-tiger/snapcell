@@ -5,7 +5,7 @@
 
 ## Context
 
-Snapcell is a local-only, single-user Flutter app (Android first). There is no backend. State is mostly a derived chain: configuration → date range → favorites → packed layout → rendered sheets. Persisted data is small and relational: dates, photos, a many-to-many link between them, a favorite flag, comments, and one global config.
+Snapcell is a local-only, single-user Flutter app (Android first). There is no backend. State is mostly a derived chain: configuration → date range → favorites → packed layout → rendered sheets. Persisted data is small and relational: dates, photos (each belonging to exactly one date), a favorite flag, comments, and one global config.
 
 The author is new to Flutter and Dart but fluent in C#, TypeScript and Go. The project follows TDD, so the data and state layers should be testable without an emulator.
 
@@ -39,7 +39,7 @@ Package status checked on pub.dev on 2026-10-15; all four candidates are activel
 | Codegen | Required (`drift_dev`, `build_runner`) | None |
 | Reactivity | Queries can be watched as `Stream`s | Manual re-query after writes |
 | Migrations | Schema-versioned, with generated verification and test helpers | Hand-written `onUpgrade` SQL |
-| Many-to-many (date ↔ photo, favorite) | Typed joins | Hand-written join SQL and manual mapping |
+| One-to-many (date → photos, favorite) | Typed relations and joins | Hand-written join SQL and manual mapping |
 | Testing | In-memory DB, runs on desktop with `dart test` | Platform channel; needs `sqflite_common_ffi` for tests |
 | Weight | Heavier (codegen, build time) | Light |
 

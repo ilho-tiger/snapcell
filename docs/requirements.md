@@ -50,10 +50,10 @@
 |---|---|
 | FR-1.1 | The user manually associates any photo with any diary date, regardless of the photo's capture date. |
 | FR-1.2 | A date may have multiple candidate photos. |
-| FR-1.3 | The same photo may be associated with several dates. |
+| FR-1.3 | Nothing prevents the user from picking the same gallery photo for another date. Each pick is an independent import with its own stored copy and its own comment. Duplicates are not detected. |
 | FR-1.4 | The user can set a favorite photo for a date while assigning photos, and can change it at any time. |
 | FR-1.5 | The user can add a short comment to each photo. Comments are stored in the app only and are **not printed** in v1. |
-| FR-1.6 | The user can remove a photo from a date or replace it. Reordering candidates is not supported. |
+| FR-1.6 | The user can remove a photo from a date, which deletes its stored copy. Replacing a photo is removing it and importing another in one action. Reordering candidates is not supported. |
 | FR-1.7 | Dates are stored with the full year, because a diary may span years. |
 
 ### 3.2 Generation flow
