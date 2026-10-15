@@ -80,7 +80,8 @@
 | FR-3.4 | Default spacing between photos is about 2 mm (configurable). |
 | FR-3.5 | Cut guides are drawn centered in the gap between photos. Cutting errors then land in white space, not on the image. |
 | FR-3.6 | Default page orientation is portrait (configurable). |
-| FR-3.7 | Printable margins and spacing are configurable, with reasonable defaults. |
+| FR-3.7 | Printable margins are set per side (top, bottom, left, right), each defaulting to 3 mm and configurable. Spacing is also configurable (FR-3.4). |
+| FR-3.9 | The grid of cells is centered within the area left after the margins. Leftover space is split evenly on opposite sides. |
 | FR-3.8 | Cut guides are on by default (configurable). |
 
 **Reference capacity** (4 × 5.5 in paper, 29 × 19 mm photos, 2 mm gaps, before printer margins): at most 18 cells in portrait (3 × 6) or 16 in landscape (4 × 4).
@@ -139,7 +140,7 @@ A single global configuration applies in v1.
 | Diary cell size | 30 × 20 mm | Configurable |
 | Photo inset per side | 0.5 mm | 0 = exact fit |
 | Spacing between photos | ~2 mm | Configurable |
-| Printable margins | Reasonable defaults, to be set | Configurable |
+| Printable margins | 3 mm per side (top, bottom, left, right) | Configurable per side |
 | Page orientation | Portrait | Configurable |
 | Cut guides | On | Configurable |
 | Output DPI | 300 | Configurable |
@@ -178,5 +179,5 @@ A single global configuration applies in v1.
 
 - **Fit without cropping and default crop vs. fit (resolved):** v1 supports crop (cover) only (FR-5.6), so the fill colour and the default no longer arise. Portrait photos are cropped to the landscape cell (FR-5.4) and lose roughly half of their height.
 - **Label default:** the source says labels are optional but not whether they are on by default. I assumed off.
-- **Margin default values:** "reasonable defaults" are not specified.
+- **Margin defaults and grid placement (resolved):** the source gave no values. v1 uses four per-side margins of 3 mm (FR-3.7), with the grid centered in the remaining area (FR-3.9). The 3 mm default is an estimate. It keeps the reference capacity (18 portrait, 16 landscape) but has not been checked against a real printer.
 - **Missing photo at generation (resolved):** the source didn't say what happens if a referenced photo is gone when generating. Photos are now copied into the app at import (OQ-2, [ADR-0004](adr/0004-photo-storage.md)), so this case no longer exists.
