@@ -86,6 +86,7 @@
 | FR-3.7 | Printable margins are set per side (top, bottom, left, right), each defaulting to 3 mm and configurable. Spacing is also configurable (FR-3.4). |
 | FR-3.8 | Cut guides are on by default (configurable). |
 | FR-3.9 | The grid of cells is centered within the area left after the margins. Leftover space is split evenly on opposite sides. |
+| FR-3.10 | A configuration that cannot place at least one unit per sheet is rejected with an error (see FR-6.9). The app never silently produces zero units per sheet or shrinks the cell to fit. |
 
 **Reference capacity** (4 × 5.5 in paper, 29 × 19 mm photos, 2 mm gaps, before printer margins): at most 18 cells in portrait (3 × 6) or 16 in landscape (4 × 4).
 
@@ -122,6 +123,7 @@
 | FR-6.6 | File names include the date range and sheet number, e.g. `diary_2026-10-01_2026-10-18_p1.jpg`. |
 | FR-6.7 | Output is saved to the phone gallery. |
 | FR-6.8 | The app only produces the print-ready file. Direct printer support is out of scope. |
+| FR-6.9 | Configuration is validated before generation, and an invalid configuration is rejected with an error, never auto-corrected (silently changing DPI would contradict FR-6.4). All problems are reported together. Limits are listed in §4.1. |
 
 ### 3.7 Localization
 
@@ -151,6 +153,21 @@ A single global configuration applies in v1.
 | Label format | `Mon/D` (e.g. Oct/15) | Configurable |
 | Label cell height | ≤ 3 mm | Configurable |
 
+### 4.1 Validation limits
+
+Enforced by `sheet_engine` (ADR-0003). A configuration that violates any rule is rejected (FR-6.9).
+
+| Setting | Rule |
+|---|---|
+| Output DPI | 150–600 |
+| Paper side | 50–300 mm (covers 4 × 5.5 in up to A4) |
+| Output pixels per sheet | At most 25 MP (`width px × height px`, FR-6.3). A4 at 300 DPI is 8.7 MP and passes. A4 at 600 DPI is 34.8 MP and is rejected. |
+| Cell width and height | Greater than 0 |
+| Margins, spacing, inset | 0 or greater |
+| Photo inset | `2 × inset` is less than both cell width and cell height, so the photo rectangle is not empty (FR-5.1) |
+| Label cell height | Greater than 0 and at most 3 mm (FR-4.4), and less than the cell height |
+| Cell fit | One unit (cell, plus label cell if labels are on) fits in the paper minus margins in the chosen orientation, so units per sheet is at least 1 (FR-3.10) |
+
 ---
 
 ## 5. Out of scope (v1)
@@ -174,7 +191,7 @@ A single global configuration applies in v1.
 | # | Question | Status | Resolution |
 |---|---|---|---|
 | OQ-1 | Implementation technology: Android native, Flutter, or PWA? | Resolved | Flutter. See [ADR-0001](adr/0001-application-framework.md). |
-| OQ-2 | Are photos copied into the app, or only referenced? | Resolved | See [ADR-0004](adr/0004-photo-storage.md). Photos are copied into the app's private storage, downscaled to about 1600 px on the long edge at import. The printed photo is only about 343 × 224 px, so this is more than enough, and it removes the case of a referenced photo disappearing from the gallery. A very large cell or DPI setting could exceed the stored resolution; the stored size is capped. |
+| OQ-2 | Are photos copied into the app, or only referenced? | Resolved | See [ADR-0004](adr/0004-photo-storage.md). Photos are copied into the app's private storage, downscaled to about 1600 px on the long edge at import. The printed photo is only about 343 × 224 px, so this is more than enough, and it removes the case of a referenced photo disappearing from the gallery. A very large cell or DPI setting could exceed the stored resolution; the stored size is capped. Output size is capped separately (FR-6.9, §4.1). |
 
 ---
 

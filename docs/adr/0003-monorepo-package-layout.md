@@ -57,6 +57,10 @@ The name `sheet_engine` was chosen over `layout_core` because "layout" collides 
 
 The engine returns plain data (for example, "sheet 1, unit 7 at x, y, w, h in px, label rect ..."). It never draws. The `app` painter reads that data and draws it.
 
+### Validation
+
+`sheet_engine` validates the config before planning (FR-6.9, requirements §4.1). Validation returns a list of typed `ConfigError` values, so the UI can show every problem at once. The engine never throws for invalid user input and never auto-corrects it. Limits (DPI 150–600, paper side 50–300 mm, at most 25 MP per sheet, cell must fit at least once) live as constants in the engine and are covered by its tests. `plan` is only callable with a validated config.
+
 ## Consequences
 
 - `sheet_engine` uses its own minimal geometry types (`Rect`, `Size`, `Point`). `app` converts them to `dart:ui` types at the boundary.
