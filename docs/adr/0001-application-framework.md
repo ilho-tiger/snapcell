@@ -1,6 +1,6 @@
 # ADR-0001: Application framework — Flutter
 
-- Status: Accepted
+- Status: Accepted, pending #1 (the JPEG export pipeline and DPI approach are unverified; do not build on them as settled)
 - Date: 2026-10-15
 - Resolves: OQ-1 in `docs/requirements.md`
 
