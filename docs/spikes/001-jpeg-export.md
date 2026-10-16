@@ -4,7 +4,7 @@
 - Date: 2026-10-16
 - Verifies: [ADR-0001](../adr/0001-application-framework.md) (shared painter, encode, DPI), with input for [ADR-0004](../adr/0004-photo-storage.md)
 - Code: branch `spike/jpeg-export`, directory `spike/` (throwaway, not for merge)
-- Status: **partial.** Items 1–5, 7 and 8 were run on an emulator. Item 9 (physical print), real-device timing and real photos are **not done**, so ADR-0001 stays "Accepted, pending #1".
+- Status: **partial.** Items 1–5, 7 and 8 were run on an emulator. Item 9 (physical print), a run on a real device and real photos are **not done**, so ADR-0001 stays "Accepted, pending #1".
 
 ## Question
 
@@ -25,7 +25,7 @@ A Flutter app (`spike/lib/main.dart`) runs the whole pipeline on startup and log
 
 ### Limits of this setup
 
-- **Not a mid-range phone.** The emulator uses the host CPU, so all timings are far better than a real device. Treat them as relative, and as a lower bound on cost.
+- **Not the target device.** The target user has a Galaxy S26 (flagship), so a mid-range or low-RAM device is out of scope. The emulator still runs on the host CPU and its GPU is software-emulated, so it is not an S26 either: treat timings as relative, and the memory numbers as unreliable (item 8).
 - Memory sampling at 0.3 s is coarse, and the emulator's GPU memory is probably not visible in PSS (see item 8).
 - Synthetic photos have more high-frequency detail than most real photos, and no EXIF.
 - During the run the app drew no frames (`runApp(SizedBox())`), so jank on a live UI was not tested. Only UI-isolate event-loop stalls were measured.
@@ -42,7 +42,7 @@ The pure-Dart `image` encoder, run in `Isolate.run` with the RGBA bytes passed a
 | `toByteData(rawRgba)` | 18 ms (105 ms on the very first, cold run) |
 | JPEG encode in isolate | 72 ms |
 
-`toImage` returns early, so the real raster cost shows up in `toByteData`. Quote the two together (about 25–115 ms). Real-device numbers are still needed.
+`toImage` returns early, so the real raster cost shows up in `toByteData`. Quote the two together (about 25–115 ms). A run on a real device (ideally the S26) is still wanted.
 
 ### 2. DPI: pass, but the encoder does not do it by itself
 
@@ -108,7 +108,7 @@ Five sheets of 18 photos, each decoded, drawn, encoded and disposed in turn, wit
 
 - **Speed:** (b) is clearly faster, about 1.75×.
 - **Memory:** the deltas are within noise. The expected naive all-at-once cost (18 × 7.7 MB, about 138 MB) was **not observed** for (a), so the emulator hides most image memory (likely GPU-side). These numbers cannot decide between the strategies.
-- **Tentative choice:** (b) with sequential decode, draw, dispose. It is the fastest, and had the lowest measured delta. Confirm on a low-RAM device with `dumpsys meminfo` Graphics and Native Heap lines before relying on it.
+- **Tentative choice:** (b) with sequential decode, draw, dispose. It is the fastest, and had the lowest measured delta. Confirm on a real device with `dumpsys meminfo` Graphics and Native Heap lines before relying on it. A low-RAM device is not required.
 - The multi-sheet run in item 7 used `targetWidth: 686` (2× the cell width). The visual effect of target-size decode on quality was not compared against (a).
 
 ### 9. Physical print and measure: not done
@@ -117,7 +117,7 @@ Needs a printer, its app and a ruler. Nothing is recorded for #2 yet. Procedure 
 
 ## Conclusion
 
-**Provisional go** on the Dart encoder and the DPI approach, pending real-device confirmation:
+**Provisional go** on the Dart encoder and the DPI approach, pending a run on a real device:
 
 1. Encode in a background isolate with `image` works. Encode is about 72 ms on the emulator.
 2. DPI **requires a post-encode patch** of the JFIF APP0 bytes (the encoder writes unit 0, 1:1). Also write EXIF `XResolution`, `YResolution` and `ResolutionUnit` as `[dpi, 1]` lists. Verified on macOS only.
@@ -128,7 +128,7 @@ Needs a printer, its app and a ruler. Nothing is recorded for #2 yet. Procedure 
 
 ## Not verified (blocks closing #1)
 
-- [ ] Timing and peak memory on a real mid-range Android device (items 1, 7, 8)
+- [ ] Timing and peak memory on a real device, ideally the Galaxy S26 (items 1, 7, 8). No mid-range or low-RAM device needed.
 - [ ] Real 1600 px photos, including EXIF orientation (items 3, 8)
 - [ ] DPI read back in the Android gallery and the printer app's print flow (item 2)
 - [ ] Live-UI jank during export, with frames being drawn (item 7)
