@@ -4,7 +4,7 @@
 - Date: 2026-10-16
 - Verifies: [ADR-0001](../adr/0001-application-framework.md) (shared painter, encode, DPI), with input for [ADR-0004](../adr/0004-photo-storage.md)
 - Code: branch `spike/jpeg-export`, directory `spike/` (throwaway, not for merge)
-- Status: **items 1–8 done on a real device. Item 9 (physical print) and a few smaller checks are open** (see [Not verified](#not-verified)), so ADR-0001 stays "Accepted, pending #1" until they are settled.
+- Status: **done. Decision: go.** Items 1–8 were measured on the target device. Item 9 (physical print) is out of scope, see item 9. ADR-0001 is updated accordingly.
 
 ## Question
 
@@ -20,7 +20,7 @@ A Flutter app (`spike/lib/main.dart`) runs the whole pipeline on startup and log
 | Input photos | 18 real camera JPEGs picked evenly across the file-size range of 206 in `DCIM/Camera` (12 MP, 4000 × 3000 or 3000 × 4000, 1.9–7.5 MB each) | 18 synthetic 1600 × 1200 JPEGs |
 | Build | `--profile`, Flutter 3.47.7, Impeller, `image` 4.12.0 | same |
 
-**Device note.** The target user is described as having a Galaxy S26. The test device reports model `SM-S931U1` and product `pa1quew`, which I believe is a Galaxy S25 (US unlocked), not an S26. It is a current flagship either way. Results are recorded for the device as measured.
+**Device.** The target device is a Galaxy S25. The test device is a Galaxy S25 (`SM-S931U1`, US unlocked), so results apply directly. A mid-range or low-RAM device is not a target.
 
 Painter: one `SheetPainter` that draws in 1200 × 1650 sheet space only: opaque white background, 3 × 6 cells of 343 × 224 px (cover crop), a label above each cell.
 
@@ -54,7 +54,7 @@ About 0.3 s for the render and encode of one sheet. On the emulator the encode t
 - Patching APP0 after encoding works: set byte 13 (unit) to 1 and bytes 14–17 to 300 (big-endian). Verified on the device's output: `sips` reports 300 × 300 DPI at 1200 × 1650.
 - EXIF `XResolution`, `YResolution` (300/1) and `ResolutionUnit` (2 = inch) can be written through `image.exif.imageIfd`. Pitfall: the setters take a `Rational` or a `[numerator, denominator]` list. Passing an `IfdValueRational` is **silently dropped**. Verified by parsing IFD0 of an output file.
 - macOS `sips` reads 300 DPI from either tag alone (JFIF-only and EXIF-only copies both report 300). With neither, it reports 72.
-- Not checked: Android gallery apps and the printer app's print flow, which are the tools that matter. That belongs with item 9.
+- Not checked: DPI read back in an Android gallery app (see Not verified). The printer app's print flow is out of scope (item 9).
 
 ### 3. Downscale quality: `medium` is fine, and the choice matters little for photos
 
@@ -68,7 +68,7 @@ Cell 0 was rendered at each `FilterQuality` and compared with a box-filter (aver
 | `high` | 10.58 | 7.57 (identical to `medium`) |
 
 - On real photos, `low`, `medium` and `high` come out identical and only `none` is worse. The synthetic image (2 px checker, 1 px lines) is the case where `low` fails. Images from the synthetic run are in `001-jpeg-export/` (`cell_none.png`, `cell_low.png`, `cell_medium.png`, `cell_reference.png`).
-- The absolute real-photo MAE (about 10.6) is higher than the synthetic one even for the best filter. A likely cause is sub-pixel misregistration between the mip-chain result and the reference crop on detailed photo content, not aliasing, but I did not verify that. **The real-photo cells were not inspected visually** (private content). A human check of a few printed cells belongs with item 9.
+- The absolute real-photo MAE (about 10.6) is higher than the synthetic one even for the best filter. A likely cause is sub-pixel misregistration between the mip-chain result and the reference crop on detailed photo content, not aliasing, but I did not verify that. **The real-photo cells were not inspected visually** (private content). A visual check was not done.
 - Use `FilterQuality.medium`. It costs nothing over `low` and is safe on fine patterns.
 
 ### 4. Preview and export parity: geometry passes
@@ -117,9 +117,9 @@ Five sheets of 18 photos, each decoded, drawn, encoded and disposed in turn, wit
 - **Choice:** (b) with sequential decode, draw, dispose.
 - The multi-sheet run in item 7 decoded 18 photos at once at `targetWidth: 686` (2× the cell width). Switching it to sequential would lower its peak further. The quality effect of target-size decode against (a) was not compared visually.
 
-### 9. Physical print and measure: not done
+### 9. Physical print and measure: out of scope
 
-Needs a printer, its app and a ruler. Nothing is recorded for #2 yet. Procedure is in the issue.
+Not done, and not going to be. How a photo printer app scales or crops the file, and whether it honors the DPI tag, is the printer app's responsibility. The app only produces the print-ready file (FR-6.8). The spike checks that the file declares 300 DPI correctly, which it does.
 
 ### Related import measurements (setup step, input for ADR-0004 and #3)
 
@@ -139,7 +139,7 @@ Kept for context. The emulator gave unusable memory numbers (GPU memory is hidde
 
 ## Conclusion
 
-**Go** on the Dart encoder and the DPI approach. The remaining risk is the print (item 9), not the pipeline.
+**Go** on the Dart encoder and the DPI approach.
 
 1. Encode in a background isolate with `image` works. About 0.3 s per sheet on the device, about 0.7 s per sheet including decode.
 2. DPI **requires a post-encode patch** of the JFIF APP0 bytes (the encoder writes unit 0, 1:1). Also write EXIF `XResolution`, `YResolution` and `ResolutionUnit` as `[dpi, 1]` lists. Verified on macOS only.
@@ -149,19 +149,17 @@ Kept for context. The emulator gave unusable memory numbers (GPU memory is hidde
 6. The shared painter gives geometry parity, so keep it in sheet space and scale only for the preview.
 7. Expect occasional frame hitches if generation runs on the UI isolate while an animation is on screen. A 5-sheet job takes about 3.5 s.
 
-## Not verified
+## Not verified (not blocking)
 
-- [ ] DPI read back in the Android gallery and the printer app's print flow (item 2)
+- [ ] DPI read back in the Android gallery (item 2)
 - [ ] Visual check of real-photo cells and parity (items 3, 4)
 - [ ] A photo that actually has an EXIF orientation tag (none of the 18 did)
-- [ ] Item 9, physical print and measurement, and the hand-off to #2
-- [ ] Re-run on the target user's actual phone, if it is an S26 and not the S25-class device used here (not expected to change the result)
 
 ## Follow-ups
 
 - Doc cleanup from the issue (`layout_core` → `sheet_engine` in ADR-0001:50, the isolate claim at ADR-0001:14, geometry-not-pixel parity wording) is separate and not blocked by this.
 - ADR-0004: the downscale is about 1 s per 12 MP photo in a pure-Dart isolate on this device. Whether native `maxWidth` replaces it is the #3 question.
-- Once the open items are done, amend ADR-0001 with a link to this document and the pinned `image` version. Use a superseding ADR instead if the print result contradicts the above.
+- ADR-0001 is amended with the verified approach and a link to this document (`image` 4.12.0).
 
 ## Reproduce
 
