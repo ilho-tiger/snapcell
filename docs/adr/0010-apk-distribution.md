@@ -1,6 +1,6 @@
 # ADR-0010: APK distribution — signed release APK on `v*` tags, via GitLab Release
 
-- Status: Proposed (no pipeline has run; the keystore does not exist yet)
+- Status: Accepted (2026-10-16; no pipeline has run and the keystore does not exist yet, see Open items)
 - Date: 2026-10-16
 - Amends: ADR-0007 (which left release builds and signing out of scope)
 - Related: ADR-0001, ADR-0003, ADR-0007
@@ -52,7 +52,7 @@ Build for **arm64 only** (`--target-platform android-arm64`). This produces one 
 | Merge request, `main` | As in ADR-0007: `analyze`, `test-engine`, `test-app`, `build-apk` (debug, a build check only; artifact kept 1 week) |
 | Tag `v*` | The same check and test jobs, then `build-release`, then `release` |
 
-- `build-release` runs on the pinned Flutter image (ADR-0007), writes `key.properties`, builds the signed APK, and keeps it as a job artifact for 1 week. This artifact only passes the file to the next job.
+- `build-release` runs with the Flutter version pinned in `.fvmrc` (ADR-0007), writes `key.properties`, builds the signed APK, and keeps it as a job artifact for 1 week. This artifact only passes the file to the next job.
 - `release` uploads the APK to the project's **generic package registry** as `snapcell/<version>/snapcell-<version>.apk`, authenticating with `CI_JOB_TOKEN`. It then creates a **GitLab Release** for the tag with the `release:` keyword, with an asset link to that package file. It runs in the `registry.gitlab.com/gitlab-org/cli` image, which the GitLab release examples use.
 - Users download the APK from the project's **Releases** page. Package files do not expire; a maintainer deletes old ones.
 
