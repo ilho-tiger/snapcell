@@ -21,12 +21,12 @@ The author works alone, is new to Flutter, and has no release process yet (no si
 Pin one exact Flutter version, and use it everywhere.
 
 - **Source of truth:** `.fvmrc` at the repository root ([FVM](https://fvm.app)). Developers run `fvm flutter ...`.
-- **CI:** the job image tag is the same exact version, for example `ghcr.io/cirruslabs/flutter:<version>`. The tag is never `stable` or `latest`.
+- **CI:** each job installs Flutter at the version read from `.fvmrc` (a shallow `git clone --branch <version>` of `flutter/flutter`, cached by the hash of `.fvmrc`). The job image only supplies the JDK and Android SDK. A prebuilt Flutter image is not used: `ghcr.io/cirruslabs/flutter` has no tag newer than `3.44.0`, built 2026-05-20 (checked 2026-10-16), so the pinned `3.47.7` has no image.
 - **`pubspec.yaml`:** keep `environment:` constraints (`sdk:`, `flutter:`) as a lower bound that matches the pin, so a too-old SDK fails fast.
-- **Upgrades** are their own commit that changes `.fvmrc`, the CI image tag, and the constraints together, with the tests green.
+- **Upgrades** are their own commit that changes `.fvmrc` and the constraints together, with the tests green.
 - The version itself is chosen when the project is scaffolded (the latest stable at that time), not in this ADR.
 
-Two places (`.fvmrc`, CI image tag) must stay in sync. A CI job that compares them is not worth building yet; the upgrade rule above covers it.
+`.fvmrc` is the only place the version is pinned, so CI and local builds cannot drift apart.
 
 ### Generated code: not committed
 
@@ -47,7 +47,7 @@ If `build_runner` time becomes a burden, the option to revisit is committing the
 
 ### CI: GitLab CI
 
-One `.gitlab-ci.yml` with these jobs, running on GitLab.com shared runners using the pinned Flutter image:
+One `.gitlab-ci.yml` with these jobs, running on GitLab.com shared runners, on an image with the JDK and Android SDK (`ghcr.io/cirruslabs/flutter:3.44.0`, used for those two only) and Flutter installed from `.fvmrc`:
 
 | Stage | Job | Command |
 |---|---|---|
@@ -66,11 +66,11 @@ One `.gitlab-ci.yml` with these jobs, running on GitLab.com shared runners using
 
 | Question | Chosen | Alternative | Why not |
 |---|---|---|---|
-| Version pin | `.fvmrc` + CI image tag | `pubspec.yaml` constraint only | A range does not pin the SDK; CI and laptop can differ |
-| | | Image tag only | Local builds can drift from CI |
+| Version pin | `.fvmrc`, installed in CI | `pubspec.yaml` constraint only | A range does not pin the SDK; CI and laptop can differ |
+| | | Image tag only | Local builds can drift from CI, and the image can lag Flutter (it has, since May) |
 | | | `asdf` / `mise` | Equivalent, but FVM is Flutter-specific and has IDE support |
 | Generated code | Gitignored | Committed + freshness check | Extra check and noisy diffs for no current benefit |
-| CI runner | GitLab.com shared, prebuilt Flutter image | Self-installed SDK per job | Slower, and the install is another thing to pin |
+| CI runner | GitLab.com shared, SDK installed from `.fvmrc` | Prebuilt Flutter image | No image exists for the pinned version; its publisher lags, so every upgrade would wait on it |
 
 ## Consequences
 
@@ -80,7 +80,7 @@ One `.gitlab-ci.yml` with these jobs, running on GitLab.com shared runners using
 
 ## Open items
 
-- Choose the Flutter version when scaffolding, and verify the image tag exists for it.
+- Flutter version chosen at scaffolding: 3.47.7 (2026-10-16).
 - Confirm where `gen_l10n` writes its output in that version, and set the gitignore rule accordingly.
 - Confirm the pub workspace syntax (ADR-0003) works with the cache and `dart test` paths used above.
 - Confirm GitLab.com shared runner time is enough for `flutter build apk`; if not, drop `build-apk` from merge requests and run it on `main` only.
