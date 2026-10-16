@@ -94,7 +94,7 @@ The `sheets/` row in the ADR-0002 table changes from "delete everything" to: kee
 
 ## Open items (verify on a device before status becomes Accepted)
 
-Tracked as the spike in [issue #5](https://gitlab.com/ilho-song/snapcell/-/work_items/5).
+Tracked as the spike in [issue #5](https://github.com/ilho-tiger/snapcell/issues/5).
 
 1. **Render path in a service isolate.** `Picture.toImage` from a non-UI isolate, with the activity destroyed, is unverified. If it does not work, fall back to compositing in a pure-Dart isolate with the `image` package, driven by `sheet_engine`. That fallback gives up ADR-0001's single painter shared by preview and export, and would amend ADR-0001.
 2. **Foreground service type and timeout.** Confirm `dataProcessing` is the right type on Android 16, its timeout, and that `onTimeout` handling stops the service in time.

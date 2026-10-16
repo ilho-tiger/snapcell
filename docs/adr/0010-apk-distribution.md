@@ -4,6 +4,7 @@
 - Date: 2026-10-16
 - Amends: ADR-0007 (which left release builds and signing out of scope)
 - Related: ADR-0001, ADR-0003, ADR-0007
+- Amended by: [ADR-0011](0011-github-hosting-and-ci.md) (GitHub Release instead of GitLab; environment secrets; `github.run_number`; the repository and APK are public, so the members-only assumption no longer holds. The GitLab-specific text below is historical)
 
 ## Context
 
