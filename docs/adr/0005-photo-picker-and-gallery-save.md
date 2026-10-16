@@ -1,6 +1,6 @@
 # ADR-0005: Photo picker and gallery save — `image_picker` + `gal`
 
-- Status: Proposed (docs and source reviewed; on-device verification pending, see checklist)
+- Status: Accepted. Verified on a Galaxy S25 (Android 17, API 37) by [spike 002](../spikes/002-photo-picker-and-gal.md). Not verified on API 36, HEIC, or photos without EXIF (see Verification results).
 - Date: 2026-10-15
 - Resolves: the deferred package choice in ADR-0001 (Consequences) and ADR-0002 (Consequences)
 
@@ -51,20 +51,20 @@ Package status checked on pub.dev on 2026-10-15:
 
 ### Import
 
-- Call `pickMultiImage` (FR-1.2 wants several candidates per date). On Android 16 the plugin always uses the system Photo Picker, so `useAndroidPhotoPicker` needs no setting and `limit` is honored.
+- Call `pickMultiImage(maxWidth: 1600, maxHeight: 1600, imageQuality: 85)` (FR-1.2 wants several candidates per date; the resize is [ADR-0004](0004-photo-storage.md)'s downscale step). On Android 16 the plugin always uses the system Photo Picker, so `useAndroidPhotoPicker` needs no setting. `limit` is honored (40 selections were allowed and enforced). Always pass `imageQuality`: without it the output was about 960 KB per photo.
 - No gallery permission is requested. The Photo Picker hands back only what the user selected, which matches ADR-0004: nothing is read after import.
 - Picks are returned as files in the app cache. ADR-0004's copy-and-downscale step moves them to private storage; the cache file is then disposable.
-- Call `retrieveLostData()` at startup. Android may kill the activity while the system picker is in the foreground.
-- Capture date (ADR-0004, FR-1.1) is **not** taken from `XFile.lastModified`: the cached copy's timestamp is the copy time, not the capture time. It is read from EXIF `DateTimeOriginal` of the picked file. The EXIF reader package is not chosen here; see Open items.
+- Call `retrieveLostData()` at startup **and again when the app resumes**. Android may kill the app while the system picker is in the foreground. The spike recovered the pick after a process death, but a startup call that ran before the pick finished returned empty, and the same call afterwards returned the file. **The recovered file is not resized** (the `maxWidth`/`maxHeight` options are lost), so the import step must downscale it itself.
+- Capture date (ADR-0004, FR-1.1) is **not** taken from `XFile.lastModified`: the cached copy's timestamp is the copy time, not the capture time. It is read from EXIF `DateTimeOriginal` of the picked file, which the picker preserves (identical to the original on every camera photo tested). The reader is `decodeJpgExif` from the `image` package, already a dependency, which matched `exiftool` on 22 files in 0.2–7 ms each. The picker zeroes GPS, and nothing uses it.
 
 ### Save
 
 - Call `Gal.putImage(path)` with the file produced by the encoder, passing the FR-6.6 file name. `putImage` stream-copies the file, so the JFIF density bytes patched for FR-6.4 are written to the gallery unmodified. `putImageBytes` is avoided: it re-guesses the format from the bytes and adds no benefit here.
-- File names are deterministic (FR-6.6), so regenerating the same range collides. The app does not add a timestamp or run number; `gal` de-duplicates and the gallery name gets a suffix such as `_p1 (1).jpg`. Record the name the gallery actually assigned rather than the requested one (ADR-0002 `saved(uri)`).
+- File names are deterministic (FR-6.6), so regenerating the same range collides. The app does not add a timestamp or run number; `gal` de-duplicates and the gallery name gets a suffix such as `_p1 (1).jpg`. **`Gal.putImage` returns `Future<void>`, so it cannot report the assigned name or URI.** The spike saw `..._p1 (1).jpg` on the second save. If ADR-0002's `saved(uri)` must record the real name, query MediaStore after the call; otherwise drop the field.
 - Pass `album: 'Snapcell'` so output is grouped and easy to find when printing. With API 36 this inserts into `Pictures/Snapcell` through `MediaStore` `RELATIVE_PATH`, with no permission.
 - Manifest: no storage permission and no `requestLegacyExternalStorage`. Do not copy those lines from `gal`'s README; they are for API 29 and below.
 - Access checks are unnecessary (`gal` returns true without a prompt above API 29). Still catch `GalException`.
-- Map `accessDenied`, `notEnoughSpace` and `notSupportedFormat` to user-facing messages.
+- Map `accessDenied`, `notEnoughSpace` and `notSupportedFormat` to user-facing messages. A nonexistent path throws `notSupportedFormat` (observed), so that message must not blame the format alone. `accessDenied` and `notEnoughSpace` were not triggered.
 
 ## Consequences
 
@@ -76,19 +76,18 @@ Package status checked on pub.dev on 2026-10-15:
 - `gal` does not set `IS_PENDING` while writing, so a gallery app could briefly see a partially written file. Output is small, so the window is short.
 - Pin exact versions in `pubspec.yaml` once the app skeleton exists, and re-run the checklist below on any upgrade.
 
-## Open items (must be verified on a device before status becomes Accepted)
+## Verification results
 
-Reviewed from docs and source only. Flutter is not installed in the authoring environment, so nothing below has been run.
+Run on a Galaxy S25 (`SM-S931U1`, Android 17, API 37). Details and numbers are in [spike 002](../spikes/002-photo-picker-and-gal.md).
 
-1. **FR-6.4 round trip**: save a JPEG with patched density (300 DPI) via `Gal.putImage`, pull it from the device, and confirm the density bytes are unchanged.
-2. **Scoped storage on Android 16**: confirm `Pictures/Snapcell/` appears in the system gallery with no permission prompt, and that a second save of the same file name gets a unique name rather than overwriting. Record the exact name produced (expected form `..._p1 (1).jpg`) and confirm the stored `saved(uri)` reflects it.
-3. **EXIF through the Photo Picker**: confirm `DateTimeOriginal` is present in the cached file returned by `pickMultiImage`. If it is stripped on some Android versions, FR-1.1's capture date falls back to "unknown" and ADR-0004's schema needs to allow null.
-4. **Orientation and resizing**: `image_picker` can resize natively with `maxWidth`/`maxHeight` (it subsamples while decoding since 0.8.13+25) and copies EXIF tags on resize. Confirm that EXIF orientation is applied correctly on a rotated portrait photo. If it is, native resizing to 1600 px could replace the isolate downscale in ADR-0004, which is simpler. This is a possible change to ADR-0004, not made here. Also verify, on a low-RAM Android device:
-   - **Large inputs**: import a 50 MP photo. A pure-Dart isolate downscale decodes it to about 200 MB of RGBA and risks an out-of-memory kill; native resizing should not. Also time a batch import of about 20 photos.
-   - **Orientation end to end**: use JPEGs with EXIF orientation 3, 6 and 8. Check the stored file, the in-app thumbnail (`Image.file`), and the cell in a rendered sheet. Flutter's codec is reported to honor EXIF on Android (flutter/flutter#84937, a 2021 user report, not documented behavior). Whether the `image` package applies orientation on decode, and whether re-encoding clears the tag, is unverified. A double rotation or a lost rotation would be silent.
-   - **HEIC**: the decode path is unspecified. Android first, so deferred to the iPhone work. Check whether `pickMultiImage` ever returns HEIC on Android; if it does, ADR-0004 needs a conversion step.
-5. **MainActivity destruction**: force-kill the app while the picker is open (developer option "Don't keep activities") and confirm `retrieveLostData()` restores the selection.
-6. **EXIF reader package**: choose and verify one (pub.dev status, Android behavior) for item 3.
+1. **FR-6.4 round trip: pass.** The file `Gal.putImage` wrote is byte-identical to the input (SHA-256 equal); the JFIF density (unit 1, 300 × 300) is intact.
+2. **Scoped storage: pass.** No permission requested or shown; the file landed in `Pictures/Snapcell/` and the gallery shows the album. A second save of the same name produced `diary_..._p1 (1).jpg` and left the first untouched. The assigned name is not returned by `gal` (see Save).
+3. **EXIF through the Photo Picker: pass.** `DateTimeOriginal`, `OffsetTimeOriginal` and `Orientation` are identical to the original; GPS is zeroed. Photos with no EXIF (screenshots, downloads) were not tested, so keep the capture date nullable.
+4. **Orientation and resizing: pass.** Native resize copies the orientation tag and the date and does not rotate the pixels. Flutter's codec and `image` 4.12 both apply the tag on decode (tags 1, 3, 6, 8), and re-encoding with `image` clears it, so there is no double rotation. A 50 MP photo resized natively took about 217 ms and +40 MB, against 1.8 s and +138 MB in a pure-Dart isolate; neither ran out of memory on the S25. Importing 20 photos took about 1.9 s, and 40 about 3.8 s. At `imageQuality: 85` the mean output was 271 KB. The low-RAM device check was dropped because the S25 is the target. **HEIC was not tested** (the camera produces JPEG); an Android HEIC pick is still unverified, and ADR-0004 needs a conversion step if it ever appears.
+5. **Lost data: pass with two caveats.** After a process death the result was recoverable through `retrieveLostData()`, but only if the call runs after the pick finishes (call it on resume too), and the recovered file is unresized. The "Don't keep activities" option alone did not destroy the activity while the picker sheet was shown.
+6. **EXIF reader: `image` package** (`decodeJpgExif`), no new dependency.
+
+Not verified: API 36, HEIC, photos without EXIF, a real 50 MP camera file, and a true low-memory kill.
 
 ## Rejected alternatives
 

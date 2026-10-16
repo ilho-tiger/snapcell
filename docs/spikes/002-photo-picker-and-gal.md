@@ -3,7 +3,7 @@
 - Issues: [#3](https://github.com/ilho-tiger/snapcell/issues/3) (Photo Picker, EXIF, resize, bulk, lost data) and [#4](https://github.com/ilho-tiger/snapcell/issues/4) (`gal` save)
 - Date: 2026-10-16
 - Verifies: [ADR-0005](../adr/0005-photo-picker-and-gallery-save.md) open items 1–6, with input for [ADR-0004](../adr/0004-photo-storage.md) (downscale, capture date)
-- Code: directory `spike/exif_spike/` on branch `spike/photo-picker-gal`, commit `b3ddc6c` plus the later "retrieveLostData now" and "EXIF read check" buttons (throwaway, never merged to `main`; keep the branch so the numbers stay reproducible)
+- Code: directory `spike/exif_spike/` on branch `spike/photo-picker-gal`, commit `f4e6717` (throwaway, never merged to `main`; keep the branch so the numbers stay reproducible)
 - Status: **done on the S25 (Android 17, API 37). Not run on API 36.** The ADR minimum is Android 16, so see Not verified. ADR-0004 and ADR-0005 are updated accordingly.
 
 ## Question
