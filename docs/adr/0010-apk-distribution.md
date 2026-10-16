@@ -50,10 +50,11 @@ Build for **arm64 only** (`--target-platform android-arm64`). This produces one 
 | Pipeline | Jobs |
 |---|---|
 | Merge request, `main` | As in ADR-0007: `analyze`, `test-engine`, `test-app`, `build-apk` (debug, a build check only; artifact kept 1 week) |
-| Tag `v*` | The same check and test jobs, then `build-release`, then `release` |
+| Tag `v*` | The same check and test jobs, then `build-release`, `publish`, `release` |
 
 - `build-release` runs with the Flutter version pinned in `.fvmrc` (ADR-0007), writes `key.properties`, builds the signed APK, and keeps it as a job artifact for 1 week. This artifact only passes the file to the next job.
-- `release` uploads the APK to the project's **generic package registry** as `snapcell/<version>/snapcell-<version>.apk`, authenticating with `CI_JOB_TOKEN`. It then creates a **GitLab Release** for the tag with the `release:` keyword, with an asset link to that package file. It runs in the `registry.gitlab.com/gitlab-org/cli` image, which the GitLab release examples use.
+- `publish` uploads the APK to the project's **generic package registry** as `snapcell/<tag>/snapcell-<tag>.apk` (for example `snapcell/v0.1.0/snapcell-v0.1.0.apk`), authenticating with `CI_JOB_TOKEN`.
+- `release` then creates a **GitLab Release** for the tag with the `release:` keyword, with an asset link to that package file. It must run in the `registry.gitlab.com/gitlab-org/cli` image, which the GitLab release examples use. Upload is a separate job because that image is not known to include `curl`, and `release:` cannot expand variables set inside `script`, so the tag is used directly as the package version.
 - Users download the APK from the project's **Releases** page. Package files do not expire; a maintainer deletes old ones.
 
 ### Installing (to go in the README)
@@ -83,7 +84,7 @@ Enable "install unknown apps" for the app used to open the download. Android or 
 ## Open items
 
 - Confirm which GitLab role a member needs to view Releases and download package files in a private project on gitlab.com, and set the members' roles accordingly.
-- Confirm that `--build-number` and `--build-name` override `pubspec.yaml` as described, with the pinned Flutter version.
+- ~~Confirm that `--build-number` and `--build-name` override `pubspec.yaml`.~~ Verified locally with Flutter 3.47.7 on 2026-10-16: versionCode and versionName in the built APK came from the flags.
 - Confirm that arm64-only is acceptable for every intended user's phone.
 - Confirm how R8 shrinking is configured for release builds in the scaffold, and run the first release build on a device.
 - Add the install notes above to the README when the pipeline exists.
