@@ -1,0 +1,10 @@
+
+# FVM Version Cache
+.fvm/
+
+# Dart / Flutter
+.dart_tool/
+build/
+
+# Generated code (ADR-0007): regenerate with build_runner
+*.g.dart
