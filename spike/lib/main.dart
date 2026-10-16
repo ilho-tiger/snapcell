@@ -8,7 +8,8 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 
@@ -57,6 +58,40 @@ Uint8List makePhoto(int seed) {
   img.drawCircle(im,
       x: 800, y: 600, radius: 300, color: img.ColorRgb8(255, 255, 255));
   return img.encodeJpg(im, quality: 85);
+}
+
+/// ADR-0004 import step, as setup: bake EXIF orientation, cap long edge 1600.
+Future<List<Uint8List>> loadRealPhotos(Directory dir) async {
+  final files = dir.listSync().whereType<File>().toList()
+    ..sort((a, b) => a.path.compareTo(b.path));
+  final paths = [for (final f in files) f.path];
+  final sw = Stopwatch()..start();
+  final out = await Isolate.run(() {
+    final res = <Uint8List>[];
+    final info = <String>[];
+    for (final path in paths) {
+      final bytes = File(path).readAsBytesSync();
+      final t = Stopwatch()..start();
+      var im = img.decodeJpg(bytes)!;
+      final w0 = im.width, h0 = im.height, orient = im.exif.imageIfd.orientation;
+      im = img.bakeOrientation(im);
+      final long = math.max(im.width, im.height);
+      if (long > 1600) {
+        im = im.width >= im.height
+            ? img.copyResize(im, width: 1600, interpolation: img.Interpolation.average)
+            : img.copyResize(im, height: 1600, interpolation: img.Interpolation.average);
+      }
+      res.add(img.encodeJpg(im, quality: 85));
+      info.add('${w0}x$h0 orient=$orient -> ${im.width}x${im.height} '
+          'in=${bytes.length ~/ 1024}KB out=${res.last.length ~/ 1024}KB ${t.elapsedMilliseconds}ms');
+    }
+    return [res, info];
+  });
+  for (final l in out[1] as List<String>) {
+    log('import $l');
+  }
+  log('import total ${sw.elapsedMilliseconds}ms for ${paths.length} photos (pure-Dart isolate, setup only)');
+  return (out[0] as List<Uint8List>);
 }
 
 // ---- the shared painter (sheet space only) ---------------------------------
@@ -200,8 +235,12 @@ Future<void> run() async {
   outDir = (await getExternalStorageDirectory())!.path;
   log('outDir=$outDir');
   final t0 = Stopwatch()..start();
-  final photoBytes =
-      await Isolate.run(() => [for (var i = 0; i < 18; i++) makePhoto(i)]);
+  final realDir = Directory('$outDir/photos');
+  final useReal = realDir.existsSync() && realDir.listSync().isNotEmpty;
+  final photoBytes = useReal
+      ? await loadRealPhotos(realDir)
+      : await Isolate.run(() => [for (var i = 0; i < 18; i++) makePhoto(i)]);
+  log('photo source: ${useReal ? "REAL" : "synthetic"}');
   log('photos generated: n=${photoBytes.length} '
       'avgKB=${photoBytes.fold<int>(0, (a, b) => a + b.length) ~/ photoBytes.length ~/ 1024} '
       'in ${t0.elapsedMilliseconds}ms');
@@ -247,12 +286,16 @@ Future<void> run() async {
 
   // Item 3: downscale quality. Reference = box-filter average resize.
   final srcImg = img.decodeJpg(photoBytes[0])!;
+  const target = cellW / cellH;
+  final sw0 = srcImg.width.toDouble(), sh0 = srcImg.height.toDouble();
+  final cw = (sw0 / sh0 > target ? sh0 * target : sw0).round();
+  final ch = (sw0 / sh0 > target ? sh0 : sw0 / target).round();
   final refCell = img.copyResize(
       img.copyCrop(srcImg,
-          x: (1600 - (1200 * cellW / cellH).round()) ~/ 2,
-          y: 0,
-          width: (1200 * cellW / cellH).round(),
-          height: 1200),
+          x: (srcImg.width - cw) ~/ 2,
+          y: (srcImg.height - ch) ~/ 2,
+          width: cw,
+          height: ch),
       width: cellW,
       height: cellH,
       interpolation: img.Interpolation.average);
@@ -332,6 +375,7 @@ Future<void> run() async {
   }
   sheet.dispose();
   log('PHASE start multi');
+  final frameStart = frameTotals.length;
   var maxFrameGap = 0;
   final ticker = Stopwatch()..start();
   var last = 0;
@@ -366,13 +410,28 @@ Future<void> run() async {
   log('multi: baseRss=${mb(baseRss)}MB peakRss=${mb(pk.stop())}MB '
       'finalRss=${mb(ProcessInfo.currentRss)}MB maxEventLoopGap=${maxFrameGap}ms '
       '(8ms timer; >32ms means UI isolate blocked)');
+  final fr = frameTotals.sublist(frameStart)..sort();
+  if (fr.isNotEmpty) {
+    log('frames during multi: n=${fr.length} p50=${fr[fr.length ~/ 2].toStringAsFixed(1)}ms '
+        'p99=${fr[(fr.length * 0.99).floor().clamp(0, fr.length - 1)].toStringAsFixed(1)}ms '
+        'max=${fr.last.toStringAsFixed(1)}ms over16.7=${fr.where((x) => x > 16.7).length} '
+        'over33=${fr.where((x) => x > 33.4).length}');
+  }
   log('PHASE end multi');
   await Future<void>.delayed(const Duration(seconds: 2));
   log('DONE');
 }
 
+final frameTotals = <double>[]; // ms, build+raster per frame
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const SizedBox());
+  SchedulerBinding.instance.addTimingsCallback((ts) {
+    for (final t in ts) {
+      frameTotals.add(t.totalSpan.inMicroseconds / 1000);
+    }
+  });
+  runApp(const MaterialApp(
+      home: Scaffold(body: Center(child: CircularProgressIndicator()))));
   run().catchError((Object e, StackTrace s) => log('ERROR $e\n$s'));
 }
