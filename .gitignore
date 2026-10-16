@@ -13,3 +13,8 @@ build/
 .flutter/
 .pub-cache/
 .gradle/
+
+# Android release signing (ADR-0010)
+key.properties
+*.jks
+*.keystore
