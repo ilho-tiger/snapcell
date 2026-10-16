@@ -58,7 +58,7 @@ One `.gitlab-ci.yml` with these jobs, running on GitLab.com shared runners using
 
 - Cache the pub cache (`PUB_CACHE`), keyed on `pubspec.lock`. `pubspec.lock` is committed for `app` (an application, not a library).
 - Pipelines run on merge requests and on `main`.
-- A release build, signing, and store upload are out of scope. They need their own ADR when a release is planned.
+- Store upload is out of scope. Signed release APKs, signing, and distribution on `v*` tags are decided in [ADR-0010](0010-apk-distribution.md).
 - The company proxy variables (`http_proxy`, `https_proxy`, `no_proxy`) are **not** added: they apply to the `code.siemens.com` runners only, and this is a personal gitlab.com project.
 - On-device checks (ADR-0004, ADR-0005, ADR-0006) cannot run in this pipeline and stay manual. CI covers `dart test` and `flutter test` only.
 
