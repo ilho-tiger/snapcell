@@ -4,7 +4,7 @@
 - Date: 2026-10-16
 - Verifies: [ADR-0001](../adr/0001-application-framework.md) (shared painter, encode, DPI), with input for [ADR-0004](../adr/0004-photo-storage.md)
 - Code: branch `spike/jpeg-export`, directory `spike/` (throwaway, not for merge)
-- Status: **partial.** Items 1–5, 7 and 8 were run on an emulator. Item 9 (physical print), a run on a real device and real photos are **not done**, so ADR-0001 stays "Accepted, pending #1".
+- Status: **items 1–8 done on a real device. Item 9 (physical print) and a few smaller checks are open** (see [Not verified](#not-verified)), so ADR-0001 stays "Accepted, pending #1" until they are settled.
 
 ## Question
 
@@ -12,64 +12,70 @@ Can `CustomPainter` → `PictureRecorder` → `Picture.toImage` → RGBA → JPE
 
 ## Method and setup
 
-A Flutter app (`spike/lib/main.dart`) runs the whole pipeline on startup and logs `SPIKE ...` lines to logcat. Sample outputs were pulled with `adb pull` and read back on the Mac with `sips` and a small Python JFIF/EXIF parser.
+A Flutter app (`spike/lib/main.dart`) runs the whole pipeline on startup and logs `SPIKE ...` lines to logcat. Sample outputs were pulled with `adb pull` and read back on the Mac with `sips` and a small Python JFIF/EXIF parser. Memory comes from host-side `adb shell dumpsys meminfo` (PSS and Graphics) sampled about every 0.3 s.
 
-| | |
+| | Real device (primary) | Emulator (earlier run) |
+|---|---|---|
+| Target | `SM-S931U1` (product `pa1quew`), Snapdragon 8 Elite (SM8750), 11 GB RAM, Android 17 (API 37), arm64, over wireless debugging | AVD `snapcell_pixel`, Android 16 (API 36), 2 GB RAM, software GPU, on an Apple M5 Pro host |
+| Input photos | 18 real camera JPEGs picked evenly across the file-size range of 206 in `DCIM/Camera` (12 MP, 4000 × 3000 or 3000 × 4000, 1.9–7.5 MB each) | 18 synthetic 1600 × 1200 JPEGs |
+| Build | `--profile`, Flutter 3.47.7, Impeller, `image` 4.12.0 | same |
+
+**Device note.** The target user is described as having a Galaxy S26. The test device reports model `SM-S931U1` and product `pa1quew`, which I believe is a Galaxy S25 (US unlocked), not an S26. It is a current flagship either way. Results are recorded for the device as measured.
+
+Painter: one `SheetPainter` that draws in 1200 × 1650 sheet space only: opaque white background, 3 × 6 cells of 343 × 224 px (cover crop), a label above each cell.
+
+Photo import is done as setup, the way ADR-0004 describes it: decode, bake EXIF orientation, cap the long edge at 1600 px, re-encode at quality 85. The pipeline then runs on those stored copies, not on the originals.
+
+### Limits
+
+- 18 photos from one phone, with no printing step. Photo content is personal, so the outputs were **not** committed and are not reproduced here.
+- None of the 18 photos carried an EXIF orientation tag (the camera writes the pixels already rotated, e.g. 3000 × 4000 portrait). The orientation-baking path ran but was not exercised.
+- Frame timings were taken with a spinner animating. The device refresh rate was not recorded. If it is 120 Hz, the budget is 8.3 ms and the 16.7 ms counts below are the lenient reading.
+- Memory sampling at 0.3 s over Wi-Fi is coarse. PSS is reclaimed lazily, so peaks across back-to-back phases are order-dependent; the decode comparison therefore uses one fresh process per mode.
+
+## Results (real device)
+
+### 1. Encode quality and speed: pass
+
+The pure-Dart `image` encoder in `Isolate.run`, with the RGBA bytes passed as `TransferableTypedData`, produced a valid 1200 × 1650 JPEG (quality 92).
+
+| Step (one sheet, 18 real photos) | Time |
 |---|---|
-| Target | Android Virtual Device `snapcell_pixel`: Android 16 (API 36, google_apis, arm64), 4 cores, 2 GB RAM, `swiftshader_indirect` GPU |
-| Host | Apple M5 Pro (the emulator runs arm64 code on the host CPU) |
-| Build | `flutter run --profile`, Flutter 3.47.7, Impeller (OpenGLES), `image` 4.12.0 |
-| Input photos | 18 **synthetic** 1600 × 1200 JPEGs (gradients, 2 px checker, 1 px lines, noise; about 1 MB each). No real photos were available on the emulator. |
-| Painter | One `SheetPainter` that draws in 1200 × 1650 sheet space only: white background, 3 × 6 cells of 343 × 224 px (cover crop), label above each cell |
-| Memory | Host-side `adb shell dumpsys meminfo` (PSS) sampled about every 0.3 s, plus in-process `ProcessInfo.currentRss` |
+| `Picture.toImage` | 45 ms |
+| `toByteData(rawRgba)` | 25 ms |
+| JPEG encode in isolate | 235 ms |
+| Output size | 734 KB |
 
-### Limits of this setup
-
-- **Not the target device.** The target user has a Galaxy S26 (flagship), so a mid-range or low-RAM device is out of scope. The emulator still runs on the host CPU and its GPU is software-emulated, so it is not an S26 either: treat timings as relative, and the memory numbers as unreliable (item 8).
-- Memory sampling at 0.3 s is coarse, and the emulator's GPU memory is probably not visible in PSS (see item 8).
-- Synthetic photos have more high-frequency detail than most real photos, and no EXIF.
-- During the run the app drew no frames (`runApp(SizedBox())`), so jank on a live UI was not tested. Only UI-isolate event-loop stalls were measured.
-
-## Results
-
-### 1. Encode quality and speed: pass (on emulator)
-
-The pure-Dart `image` encoder, run in `Isolate.run` with the RGBA bytes passed as `TransferableTypedData`, produced a valid 1200 × 1650 JPEG (quality 92, about 480 KB with the synthetic photos).
-
-| Step (one sheet, 18 photos) | Time |
-|---|---|
-| `Picture.toImage` (awaited) | 5–9 ms |
-| `toByteData(rawRgba)` | 18 ms (105 ms on the very first, cold run) |
-| JPEG encode in isolate | 72 ms |
-
-`toImage` returns early, so the real raster cost shows up in `toByteData`. Quote the two together (about 25–115 ms). A run on a real device (ideally the S26) is still wanted.
+About 0.3 s for the render and encode of one sheet. On the emulator the encode took 72 ms, so the real device is about 3× slower than the Mac-hosted emulator.
 
 ### 2. DPI: pass, but the encoder does not do it by itself
 
 - `image` 4.12.0 always writes a JFIF APP0 segment with **unit = 0, density 1:1** (aspect ratio only). The default output declares no DPI. See `jpeg_encoder.dart:687-700` in the package.
-- Patching APP0 after encoding works: set byte 13 (unit) to 1 and bytes 14–17 to 300 (big-endian). Verified: APP0 reads `unit=1 x=300 y=300`, and `sips -g dpiWidth` reports 300.
-- EXIF `XResolution`, `YResolution` (300/1) and `ResolutionUnit` (2 = inch) can be written through `image.exif.imageIfd`. Pitfall: the setters take a `Rational` or a `[numerator, denominator]` list. Passing an `IfdValueRational` is **silently dropped** (the first run lost both tags this way). Verified by parsing IFD0 of the output.
+- Patching APP0 after encoding works: set byte 13 (unit) to 1 and bytes 14–17 to 300 (big-endian). Verified on the device's output: `sips` reports 300 × 300 DPI at 1200 × 1650.
+- EXIF `XResolution`, `YResolution` (300/1) and `ResolutionUnit` (2 = inch) can be written through `image.exif.imageIfd`. Pitfall: the setters take a `Rational` or a `[numerator, denominator]` list. Passing an `IfdValueRational` is **silently dropped**. Verified by parsing IFD0 of an output file.
 - macOS `sips` reads 300 DPI from either tag alone (JFIF-only and EXIF-only copies both report 300). With neither, it reports 72.
 - Not checked: Android gallery apps and the printer app's print flow, which are the tools that matter. That belongs with item 9.
 
-### 3. Downscale quality: use `medium` or `high`
+### 3. Downscale quality: `medium` is fine, and the choice matters little for photos
 
-Cell 0 (1600 × 1200 → 343 × 224) was rendered at each `FilterQuality` and compared with a box-filter (average) reference using mean absolute error over RGB (0–255). Images are in `001-jpeg-export/`.
+Cell 0 was rendered at each `FilterQuality` and compared with a box-filter (average) reference using mean absolute error over RGB (0–255).
 
-| FilterQuality | MAE vs reference | Visual |
+| FilterQuality | Real photo MAE | Synthetic stress test MAE |
 |---|---|---|
-| `none` | 16.77 | strong aliasing (`cell_none.png`) |
-| `low` | 13.02 | visible moiré on the fine pattern (`cell_low.png`) |
-| `medium` | 7.57 | clean (`cell_medium.png`) |
-| `high` | 7.57 | byte-identical to `medium` on this backend |
+| `none` | 11.17 | 16.77 (strong aliasing) |
+| `low` | 10.58 | 13.02 (visible moiré) |
+| `medium` | 10.58 | 7.57 (clean) |
+| `high` | 10.58 | 7.57 (identical to `medium`) |
 
-Use `FilterQuality.medium`. The remaining MAE comes mainly from the 2 px checker averaging to a slightly different gray than the mip chain. Re-check with real photos.
+- On real photos, `low`, `medium` and `high` come out identical and only `none` is worse. The synthetic image (2 px checker, 1 px lines) is the case where `low` fails. Images from the synthetic run are in `001-jpeg-export/` (`cell_none.png`, `cell_low.png`, `cell_medium.png`, `cell_reference.png`).
+- The absolute real-photo MAE (about 10.6) is higher than the synthetic one even for the best filter. A likely cause is sub-pixel misregistration between the mip-chain result and the reference crop on detailed photo content, not aliasing, but I did not verify that. **The real-photo cells were not inspected visually** (private content). A human check of a few printed cells belongs with item 9.
+- Use `FilterQuality.medium`. It costs nothing over `low` and is safe on fine patterns.
 
-### 4. Preview and export parity: pass for geometry
+### 4. Preview and export parity: geometry passes
 
-- The painter draws only in sheet space. The preview applies `canvas.scale(0.3)`. A 0.3× preview compared with the export downscaled by a box filter gives MAE 1.79, with the same cell and label positions.
+- The painter draws only in sheet space. The preview applies `canvas.scale(0.3)`. A 0.3× preview compared with the export downscaled by a box filter gives MAE 6.05 on real photos (1.79 on synthetic). Cell and label positions are identical by construction.
 - Label layout is computed in sheet space (113.8 × 28.0 px for the test label), so it does not depend on preview scale.
-- This supports the ADR-0001 follow-up wording: the shared painter guarantees **geometry** parity, not pixel parity. Text anti-aliasing differs at small scale.
+- The real-photo MAE is higher, most likely because of photo detail resampled two different ways, not because of layout. This supports the ADR-0001 follow-up wording: the shared painter guarantees **geometry** parity, not pixel parity.
 
 ### 5. Alpha: pass
 
@@ -79,65 +85,83 @@ After the opaque white first fill, the minimum alpha over all 1200 × 1650 pixel
 
 Items 1 and 2 pass, so the native `Bitmap.compress` fallback was not prototyped.
 
-### 7. Five-sheet back-to-back run: pass on the emulator
+### 7. Five-sheet back-to-back run: pass, with small frame hitches
 
-Five sheets of 18 photos, each decoded, drawn, encoded and disposed in turn, with `ui.Image` and `Picture` disposed and the image cache cleared:
+Five sheets of 18 photos, each decoded, drawn, encoded and disposed in turn, with `ui.Image` and `Picture` disposed and the image cache cleared. A spinner was animating throughout.
 
-| Sheet | Total | of which decode | Size | RSS after |
-|---|---|---|---|---|
-| 1 | 239 ms | 155 ms | 375 KB | 248 MB |
-| 2 | 238 ms | 154 ms | 375 KB | 245 MB |
-| 3 | 236 ms | 152 ms | 375 KB | 245 MB |
-| 4 | 236 ms | 151 ms | 375 KB | 245 MB |
-| 5 | 243 ms | 159 ms | 375 KB | 245 MB |
+| Sheet | Total | of which decode | Size |
+|---|---|---|---|
+| 1 | 713 ms | 467 ms | 688 KB |
+| 2 | 704 ms | 465 ms | 686 KB |
+| 3 | 692 ms | 455 ms | 684 KB |
+| 4 | 693 ms | 454 ms | 688 KB |
+| 5 | 749 ms | 455 ms | 688 KB |
 
-- Per-sheet time and RSS are flat, so there is no growth between sheets. `imageCache.currentSizeBytes` stays 0.
-- Host-side PSS peaked at 168 MB during the run and settled at 142 MB afterwards (idle before: 121 MB).
-- Max UI-isolate event-loop gap was 12 ms against an 8 ms timer, so decode, `toImage` and encode did not block the UI isolate. Rendering a live UI was not tested (see limits).
+- **Time is flat across sheets, and memory returns to baseline.** `imageCache.currentSizeBytes` stays 0. After the run, PSS settled at 133 MB, below the 137 MB idle before the first phase. (The peak during the run, 298 MB with 179 MB Graphics, still carries residue from the preceding phase, so it is an upper bound and not a clean figure. Item 8 has the clean per-strategy peaks.)
+- **UI frames during the run** (559 frames): p50 1.5 ms, p99 17.0 ms, **max 86.0 ms**, 6 frames over 16.7 ms, **2 frames over 33 ms**. The UI isolate event-loop gap, measured with an 8 ms timer, peaked at 20 ms.
+- Interpretation: the animation stays smooth almost all the time, but there are occasional hitches of 2–5 frames while the work runs on the UI isolate (`toImage` and decode run there, only the encode is off it). That is two bad frames across five sheets. This is acceptable for a foreground progress screen. Under ADR-0006 the job runs in a foreground-service isolate with no UI, so it matters only if generation runs while the user is looking at an animating screen.
 
-### 8. Decode strategy: prefer (b), target-size decode; memory not conclusive
+### 8. Decode strategy: (b) target-size, one photo at a time
 
-(a) decode at full 1600 px, draw scaled, versus (b) `instantiateImageCodec(targetWidth: 343)`. Each mode ran for 5 sheet-sized batches in a **fresh process** to avoid order effects. A first in-process run showed that PSS is reclaimed lazily (121 → 468 MB across phases, then back to 157 MB), which made any peak comparison meaningless.
+(a) decode at full stored size (1600 px long edge), draw scaled, versus (b) `instantiateImageCodec(targetWidth: 343)`. Each mode ran 5 sheet-sized batches in a **fresh process**.
 
-| Mode | Decode time, 18 photos | PSS idle → peak (delta) |
-|---|---|---|
-| (a) full, all at once | about 273 ms | 121 → 188 MB (+67) |
-| (a) full, sequential | about 273 ms | 121 → 180 MB (+59) |
-| (b) target, all at once | about 155 ms | 123 → 215 MB (+93) |
-| (b) target, sequential | about 155 ms | 121 → 176 MB (+55) |
+| Mode | Decode time, 18 photos | PSS idle → peak (delta) | Graphics peak |
+|---|---|---|---|
+| (a) full, all at once | about 1.14 s | 138 → 363 MB (+226) | 199 MB |
+| (a) full, sequential | about 1.13 s | 138 → 186 MB (+48) | 21 MB |
+| (b) target, all at once | about 0.23 s | 137 → 196 MB (+59) | 28 MB |
+| (b) target, sequential | about 0.22 s | 137 → 178 MB (+40) | 10 MB |
 
-- **Speed:** (b) is clearly faster, about 1.75×.
-- **Memory:** the deltas are within noise. The expected naive all-at-once cost (18 × 7.7 MB, about 138 MB) was **not observed** for (a), so the emulator hides most image memory (likely GPU-side). These numbers cannot decide between the strategies.
-- **Tentative choice:** (b) with sequential decode, draw, dispose. It is the fastest, and had the lowest measured delta. Confirm on a real device with `dumpsys meminfo` Graphics and Native Heap lines before relying on it. A low-RAM device is not required.
-- The multi-sheet run in item 7 used `targetWidth: 686` (2× the cell width). The visual effect of target-size decode on quality was not compared against (a).
+- **Speed:** (b) is about 5× faster, about 12 ms per photo against 63 ms.
+- **Memory:** the naive all-at-once full decode (a) is the outlier, at +226 MB, in line with the 18 × 7.7 MB (about 138 MB) estimate plus overhead. Decoding one at a time takes it from +226 MB to +48 MB, and (b) brings the peak to +40–59 MB.
+- **Choice:** (b) with sequential decode, draw, dispose.
+- The multi-sheet run in item 7 decoded 18 photos at once at `targetWidth: 686` (2× the cell width). Switching it to sequential would lower its peak further. The quality effect of target-size decode against (a) was not compared visually.
 
 ### 9. Physical print and measure: not done
 
 Needs a printer, its app and a ruler. Nothing is recorded for #2 yet. Procedure is in the issue.
 
+### Related import measurements (setup step, input for ADR-0004 and #3)
+
+Importing the 18 photos (decode, bake orientation, downscale to 1600 px, re-encode at quality 85) in a pure-Dart isolate took 520–1034 ms per photo, 14.6 s for all 18, with no out-of-memory. Output size was 217–496 KB per photo, mean 339 KB, which fits the ADR-0004 estimate of 300–500 KB. Later photos took about 1.0 s each against about 0.55 s for the first ones; the cause was not investigated. This is not the #3 comparison (no native `maxWidth` run), but it shows the pure-Dart downscale is workable at about 1 s per photo.
+
+## Emulator run (earlier, synthetic photos)
+
+Kept for context. The emulator gave unusable memory numbers (GPU memory is hidden, so no per-strategy difference showed up), which is why the real-device run replaces it for item 8. It found the two DPI pitfalls in item 2 and produced the synthetic filter comparison in item 3.
+
+| | Emulator |
+|---|---|
+| Encode in isolate | 72 ms |
+| `toByteData` | 18 ms (105 ms cold) |
+| 5 sheets, per sheet | about 240 ms, flat |
+| Decode, 18 photos, (a) vs (b) | about 273 ms vs 155 ms |
+| UI event-loop gap | 12 ms max |
+
 ## Conclusion
 
-**Provisional go** on the Dart encoder and the DPI approach, pending a run on a real device:
+**Go** on the Dart encoder and the DPI approach. The remaining risk is the print (item 9), not the pipeline.
 
-1. Encode in a background isolate with `image` works. Encode is about 72 ms on the emulator.
+1. Encode in a background isolate with `image` works. About 0.3 s per sheet on the device, about 0.7 s per sheet including decode.
 2. DPI **requires a post-encode patch** of the JFIF APP0 bytes (the encoder writes unit 0, 1:1). Also write EXIF `XResolution`, `YResolution` and `ResolutionUnit` as `[dpi, 1]` lists. Verified on macOS only.
 3. Draw with `FilterQuality.medium`.
 4. Paint an opaque white background first.
-5. Decode with `targetWidth` and handle photos one at a time (tentative).
+5. Decode with `targetWidth`, one photo at a time. This cuts decode time about 5× and peak memory from +226 MB to about +40 MB.
 6. The shared painter gives geometry parity, so keep it in sheet space and scale only for the preview.
+7. Expect occasional frame hitches if generation runs on the UI isolate while an animation is on screen. A 5-sheet job takes about 3.5 s.
 
-## Not verified (blocks closing #1)
+## Not verified
 
-- [ ] Timing and peak memory on a real device, ideally the Galaxy S26 (items 1, 7, 8). No mid-range or low-RAM device needed.
-- [ ] Real 1600 px photos, including EXIF orientation (items 3, 8)
 - [ ] DPI read back in the Android gallery and the printer app's print flow (item 2)
-- [ ] Live-UI jank during export, with frames being drawn (item 7)
+- [ ] Visual check of real-photo cells and parity (items 3, 4)
+- [ ] A photo that actually has an EXIF orientation tag (none of the 18 did)
 - [ ] Item 9, physical print and measurement, and the hand-off to #2
+- [ ] Re-run on the target user's actual phone, if it is an S26 and not the S25-class device used here (not expected to change the result)
 
 ## Follow-ups
 
 - Doc cleanup from the issue (`layout_core` → `sheet_engine` in ADR-0001:50, the isolate claim at ADR-0001:14, geometry-not-pixel parity wording) is separate and not blocked by this.
-- Once the open items are done, amend ADR-0001 with a link to this document and the pinned `image` version. Use a superseding ADR instead if the device run contradicts the above.
+- ADR-0004: the downscale is about 1 s per 12 MP photo in a pure-Dart isolate on this device. Whether native `maxWidth` replaces it is the #3 question.
+- Once the open items are done, amend ADR-0001 with a link to this document and the pinned `image` version. Use a superseding ADR instead if the print result contradicts the above.
 
 ## Reproduce
 
@@ -148,4 +172,4 @@ adb logcat -d | grep SPIKE
 adb pull /sdcard/Android/data/dev.snapcell.spike.jpeg_spike/files/ out/
 ```
 
-For one decode mode in a fresh process, push a `mode.txt` (`a_full_allAtOnce`, `a_full_sequential`, `b_target_allAtOnce` or `b_target_sequential`) to that files directory before launching.
+To use real photos, copy JPEGs into `<files dir>/photos/` on the device before launching. Without a `photos/` directory the app generates synthetic photos. For one decode mode in a fresh process, push a `mode.txt` (`a_full_allAtOnce`, `a_full_sequential`, `b_target_allAtOnce` or `b_target_sequential`) to the files directory before launching.
