@@ -1,6 +1,6 @@
 # ADR-0010: APK distribution — signed release APK on `v*` tags, via GitLab Release
 
-- Status: Proposed (no pipeline has run; the keystore does not exist yet)
+- Status: Accepted (2026-10-16; no pipeline has run and the keystore does not exist yet, see Open items)
 - Date: 2026-10-16
 - Amends: ADR-0007 (which left release builds and signing out of scope)
 - Related: ADR-0001, ADR-0003, ADR-0007
@@ -28,10 +28,10 @@ Pushing a Git tag `v<MAJOR>.<MINOR>.<PATCH>` (for example `v0.1.0`) starts a rel
 
 - One **release keystore**, created once on the author's machine with `keytool` (RSA 2048, long validity), never committed.
 - GitLab CI/CD variables, all **protected** (available on protected tags only):
-  - `ANDROID_KEYSTORE`: type **File**
+  - `ANDROID_KEYSTORE_BASE64`: the keystore as one line of base64, masked and hidden. A File-type variable holds text and a keystore is binary, so the file is stored encoded and decoded by the job (about 2.7 kB encoded).
   - `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`: masked and hidden
   - `ANDROID_KEY_ALIAS`
-- The release job writes `app/android/key.properties` from these variables, following the structure in the Flutter Android deployment docs (checked 2026-10-16). `build.gradle.kts` reads that file for the `release` signing config.
+- The release job decodes the keystore and writes `app/android/key.properties` from these variables, following the structure in the Flutter Android deployment docs (checked 2026-10-16). `build.gradle.kts` reads that file for the `release` signing config.
 - `key.properties`, `*.jks` and `*.keystore` are added to `.gitignore`.
 - **Local `flutter run --release`** keeps working: if `key.properties` is absent the release build type falls back to the debug key. The CI release job fails if `key.properties` is missing, so a debug-signed APK cannot be published by accident.
 - **Backup:** the keystore file and its passwords are stored outside GitLab (for example in a password manager) as soon as they are created. This is a prerequisite for the first tag, not a later task.
@@ -49,11 +49,12 @@ Build for **arm64 only** (`--target-platform android-arm64`). This produces one 
 
 | Pipeline | Jobs |
 |---|---|
-| Merge request, `main` | As in ADR-0007: `analyze`, `test-engine`, `test-app`, `build-apk` (debug, a build check only; artifact kept 1 week) |
-| Tag `v*` | The same check and test jobs, then `build-release`, then `release` |
+| Merge request (code changes only) | As in ADR-0007: `check`, and a manual `build-apk` (debug, a build check; artifact kept 1 week) |
+| Tag `v*` | The same check and test jobs, then `build-release`, `publish`, `release` |
 
-- `build-release` runs on the pinned Flutter image (ADR-0007), writes `key.properties`, builds the signed APK, and keeps it as a job artifact for 1 week. This artifact only passes the file to the next job.
-- `release` uploads the APK to the project's **generic package registry** as `snapcell/<version>/snapcell-<version>.apk`, authenticating with `CI_JOB_TOKEN`. It then creates a **GitLab Release** for the tag with the `release:` keyword, with an asset link to that package file. It runs in the `registry.gitlab.com/gitlab-org/cli` image, which the GitLab release examples use.
+- `build-release` runs with the Flutter version pinned in `.fvmrc` (ADR-0007), writes `key.properties`, builds the signed APK, and keeps it as a job artifact for 1 week. This artifact only passes the file to the next job.
+- `publish` uploads the APK to the project's **generic package registry** as `snapcell/<tag>/snapcell-<tag>.apk` (for example `snapcell/v0.1.0/snapcell-v0.1.0.apk`), authenticating with `CI_JOB_TOKEN`.
+- `release` then creates a **GitLab Release** for the tag with the `release:` keyword, with an asset link to that package file. It must run in the `registry.gitlab.com/gitlab-org/cli` image, which the GitLab release examples use. Upload is a separate job because that image is not known to include `curl`, and `release:` cannot expand variables set inside `script`, so the tag is used directly as the package version.
 - Users download the APK from the project's **Releases** page. Package files do not expire; a maintainer deletes old ones.
 
 ### Installing (to go in the README)
@@ -82,8 +83,9 @@ Enable "install unknown apps" for the app used to open the download. Android or 
 
 ## Open items
 
+- Confirm GitLab accepts the base64 keystore as a masked and hidden variable (its character and length rules) when the variable is created.
 - Confirm which GitLab role a member needs to view Releases and download package files in a private project on gitlab.com, and set the members' roles accordingly.
-- Confirm that `--build-number` and `--build-name` override `pubspec.yaml` as described, with the pinned Flutter version.
+- ~~Confirm that `--build-number` and `--build-name` override `pubspec.yaml`.~~ Verified locally with Flutter 3.47.7 on 2026-10-16: versionCode and versionName in the built APK came from the flags.
 - Confirm that arm64-only is acceptable for every intended user's phone.
 - Confirm how R8 shrinking is configured for release builds in the scaffold, and run the first release build on a device.
 - Add the install notes above to the README when the pipeline exists.

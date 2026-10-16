@@ -21,12 +21,12 @@ The author works alone, is new to Flutter, and has no release process yet (no si
 Pin one exact Flutter version, and use it everywhere.
 
 - **Source of truth:** `.fvmrc` at the repository root ([FVM](https://fvm.app)). Developers run `fvm flutter ...`.
-- **CI:** the job image tag is the same exact version, for example `ghcr.io/cirruslabs/flutter:<version>`. The tag is never `stable` or `latest`.
+- **CI:** each job installs Flutter at the version read from `.fvmrc` (a shallow `git clone --branch <version>` of `flutter/flutter`, cached by the hash of `.fvmrc`). The job image only supplies the JDK and Android SDK. A prebuilt Flutter image is not used: `ghcr.io/cirruslabs/flutter` has no tag newer than `3.44.0`, built 2026-05-20 (checked 2026-10-16), so the pinned `3.47.7` has no image.
 - **`pubspec.yaml`:** keep `environment:` constraints (`sdk:`, `flutter:`) as a lower bound that matches the pin, so a too-old SDK fails fast.
-- **Upgrades** are their own commit that changes `.fvmrc`, the CI image tag, and the constraints together, with the tests green.
+- **Upgrades** are their own commit that changes `.fvmrc` and the constraints together, with the tests green.
 - The version itself is chosen when the project is scaffolded (the latest stable at that time), not in this ADR.
 
-Two places (`.fvmrc`, CI image tag) must stay in sync. A CI job that compares them is not worth building yet; the upgrade rule above covers it.
+`.fvmrc` is the only place the version is pinned, so CI and local builds cannot drift apart.
 
 ### Generated code: not committed
 
@@ -47,17 +47,24 @@ If `build_runner` time becomes a burden, the option to revisit is committing the
 
 ### CI: GitLab CI
 
-One `.gitlab-ci.yml` with these jobs, running on GitLab.com shared runners using the pinned Flutter image:
+One `.gitlab-ci.yml` with these jobs, running on GitLab.com shared runners, on an image with the JDK and Android SDK (`ghcr.io/cirruslabs/flutter:3.44.0`, used for those two only) and Flutter installed from `.fvmrc`:
 
 | Stage | Job | Command |
 |---|---|---|
-| `check` | `analyze` | `dart run build_runner build`, then `flutter analyze` and `dart format --output=none --set-exit-if-changed .` |
-| `test` | `test-engine` | `dart test` in `packages/sheet_engine` (no code generation needed) |
-| `test` | `test-app` | `dart run build_runner build`, then `flutter test` in `app` |
-| `build` | `build-apk` | `flutter build apk --debug`, artifact kept for a short time |
+| `check` | `check` | `flutter analyze` and `dart analyze`, `dart format --output=none --set-exit-if-changed app packages`, `dart test` in `packages/sheet_engine`, `flutter test` in `app`. Once drift is added, `dart run build_runner build` runs first. |
+| `build` | `build-apk` | `flutter build apk --debug`. Manual on merge requests (not run automatically); artifact kept 1 week. |
+
+Release jobs on tags are in [ADR-0010](0010-apk-distribution.md).
+
+**Compute budget.** The project is on the GitLab free tier: 400 shared-runner minutes per month, billed as the sum of job durations. The first pipeline (analyze, test-engine, test-app and an automatic debug build) cost 14.2 minutes, about 28 runs a month, and about 3.5 of those minutes were pulling the same Flutter image once per job. The pipeline is therefore kept lean:
+
+- One `check` job, so the image is pulled and Flutter set up once.
+- The debug APK build is manual on merge requests. The signed release build on tags is the real APK build.
+- Pipelines run only on merge requests that change `app/`, `packages/`, the pubspecs, `.fvmrc` or `.gitlab-ci.yml`, and on tags. Documentation-only changes cost nothing, and `main` is not rebuilt after a merge.
+- `check` and `build-apk` are `interruptible`, so a newer push cancels an older run.
 
 - Cache the pub cache (`PUB_CACHE`), keyed on `pubspec.lock`. `pubspec.lock` is committed for `app` (an application, not a library).
-- Pipelines run on merge requests and on `main`.
+- Pipelines do not run on `main`: the merge request pipeline already ran the same code.
 - Store upload is out of scope. Signed release APKs, signing, and distribution on `v*` tags are decided in [ADR-0010](0010-apk-distribution.md).
 - The company proxy variables (`http_proxy`, `https_proxy`, `no_proxy`) are **not** added: they apply to the `code.siemens.com` runners only, and this is a personal gitlab.com project.
 - On-device checks (ADR-0004, ADR-0005, ADR-0006) cannot run in this pipeline and stay manual. CI covers `dart test` and `flutter test` only.
@@ -66,11 +73,11 @@ One `.gitlab-ci.yml` with these jobs, running on GitLab.com shared runners using
 
 | Question | Chosen | Alternative | Why not |
 |---|---|---|---|
-| Version pin | `.fvmrc` + CI image tag | `pubspec.yaml` constraint only | A range does not pin the SDK; CI and laptop can differ |
-| | | Image tag only | Local builds can drift from CI |
+| Version pin | `.fvmrc`, installed in CI | `pubspec.yaml` constraint only | A range does not pin the SDK; CI and laptop can differ |
+| | | Image tag only | Local builds can drift from CI, and the image can lag Flutter (it has, since May) |
 | | | `asdf` / `mise` | Equivalent, but FVM is Flutter-specific and has IDE support |
 | Generated code | Gitignored | Committed + freshness check | Extra check and noisy diffs for no current benefit |
-| CI runner | GitLab.com shared, prebuilt Flutter image | Self-installed SDK per job | Slower, and the install is another thing to pin |
+| CI runner | GitLab.com shared, SDK installed from `.fvmrc` | Prebuilt Flutter image | No image exists for the pinned version; its publisher lags, so every upgrade would wait on it |
 
 ## Consequences
 
@@ -80,7 +87,8 @@ One `.gitlab-ci.yml` with these jobs, running on GitLab.com shared runners using
 
 ## Open items
 
-- Choose the Flutter version when scaffolding, and verify the image tag exists for it.
+- Flutter version chosen at scaffolding: 3.47.7 (2026-10-16).
 - Confirm where `gen_l10n` writes its output in that version, and set the gitignore rule accordingly.
 - Confirm the pub workspace syntax (ADR-0003) works with the cache and `dart test` paths used above.
-- Confirm GitLab.com shared runner time is enough for `flutter build apk`; if not, drop `build-apk` from merge requests and run it on `main` only.
+- Measured 2026-10-16: the `check` job took 126 s (about 2.1 billed minutes) with warm Flutter and pub caches. Re-measure when drift and `build_runner` are added.
+- An alternative if the quota still binds: register the author's machine as a project runner (not counted against shared minutes).

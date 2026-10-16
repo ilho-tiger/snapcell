@@ -8,3 +8,13 @@ build/
 
 # Generated code (ADR-0007): regenerate with build_runner
 *.g.dart
+
+# CI caches
+.flutter/
+.pub-cache/
+.gradle/
+
+# Android release signing (ADR-0010)
+key.properties
+*.jks
+*.keystore
