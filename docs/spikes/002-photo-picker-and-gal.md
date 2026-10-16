@@ -36,8 +36,8 @@ The app (`spike/exif_spike/lib/main.dart`) has one button per case and logs `SPI
 ### Limits
 
 - One device, the S25 on API 37. No API 36 pass was run (dropped, the S25 is the target).
-- Only JPEG was tested. This S25's camera produces JPEG by default, and `DCIM/Camera` held no HEIC.
-- The 50 MP file is synthetic, so the file size (4.8 MB) is not representative of a real 50 MP photo.
+- Only JPEG was tested. HEIC is out of scope (dropped 2026-10-16): the photos on the target device are JPEG, and `DCIM/Camera` held no HEIC.
+- The 50 MP file is synthetic, so its file size (4.8 MB) is not representative of a real 50 MP photo. A real 50 MP camera photo was dropped (2026-10-16): the S25 shoots 12 MP by default.
 - Photos from outside the camera (screenshots, downloads, messenger images) were not tested for EXIF.
 - Memory sampling every 0.3 s over Wi-Fi can miss short peaks.
 
@@ -141,9 +141,7 @@ All runs on the same 19 most recent camera photos plus `big50.jpg` (and 20 more 
 
 ## Not verified
 
-- [ ] **HEIC.** The camera produced JPEG only. Whether `pickMultiImage` returns HEIC or converts it is untested.
 - [ ] **Photos without EXIF** (screenshots, downloads, messenger images), and photos edited in the gallery app.
-- [ ] A **real 50 MP camera photo** (the 50 MP file is synthetic).
 - [ ] Visual quality of native-resized and quality-85 photos (private content), and generation loss.
 - [ ] A **true low-memory kill** of the app while the picker is shown (reproduced by background plus `am kill`; the restart order differed from a real kill).
 - [ ] `gal` error types `accessDenied` and `notEnoughSpace`.
@@ -154,7 +152,7 @@ All runs on the same 19 most recent camera photos plus `big50.jpg` (and 20 more 
 
 - ADR-0004 and ADR-0005 are updated in this PR; see their status lines and changes.
 - Decide how to record the saved name (ADR-0002 `saved(uri)`): MediaStore query after `putImage`, or drop the field.
-- If HEIC or non-camera photos matter, run them before the iPhone work.
+- HEIC is out of scope on Android; revisit it with the iPhone work. If non-camera photos matter, test photos without EXIF.
 
 ## Reproduce
 

@@ -1,6 +1,6 @@
 # ADR-0005: Photo picker and gallery save — `image_picker` + `gal`
 
-- Status: Accepted. Verified on a Galaxy S25 (Android 17, API 37) by [spike 002](../spikes/002-photo-picker-and-gal.md). Not verified for HEIC or photos without EXIF (see Verification results).
+- Status: Accepted. Verified on a Galaxy S25 (Android 17, API 37) by [spike 002](../spikes/002-photo-picker-and-gal.md). Not verified for photos without EXIF (see Verification results).
 - Date: 2026-10-15
 - Resolves: the deferred package choice in ADR-0001 (Consequences) and ADR-0002 (Consequences)
 
@@ -64,7 +64,7 @@ Package status checked on pub.dev on 2026-10-15:
 - Pass `album: 'Snapcell'` so output is grouped and easy to find when printing. With API 36 this inserts into `Pictures/Snapcell` through `MediaStore` `RELATIVE_PATH`, with no permission.
 - Manifest: no storage permission and no `requestLegacyExternalStorage`. Do not copy those lines from `gal`'s README; they are for API 29 and below.
 - Access checks are unnecessary (`gal` returns true without a prompt above API 29). Still catch `GalException`.
-- Map `accessDenied`, `notEnoughSpace` and `notSupportedFormat` to user-facing messages. A nonexistent path throws `notSupportedFormat` (observed), so that message must not blame the format alone. `accessDenied` and `notEnoughSpace` were not triggered.
+- Map `accessDenied`, `notEnoughSpace` and `notSupportedFormat` to user-facing messages. A nonexistent path throws `notSupportedFormat` (observed), so that message must not blame the format alone. `accessDenied` and `notEnoughSpace` were not triggered. Treat those two mappings as unverified: the type only picks the message. Any unmapped `GalException` type or other exception becomes the generic `failed(error)` state with the existing retry (ADR-0002), and the mapping is tested by throwing each type from a fake `SheetSaver`. If a device shows wrong behavior later, handle it as a defect.
 
 ## Consequences
 
@@ -83,11 +83,11 @@ Run on a Galaxy S25 (`SM-S931U1`, Android 17, API 37). Details and numbers are i
 1. **FR-6.4 round trip: pass.** The file `Gal.putImage` wrote is byte-identical to the input (SHA-256 equal); the JFIF density (unit 1, 300 × 300) is intact.
 2. **Scoped storage: pass.** No permission requested or shown; the file landed in `Pictures/Snapcell/` and the gallery shows the album. A second save of the same name produced `diary_..._p1 (1).jpg` and left the first untouched. The assigned name is not returned by `gal` (see Save).
 3. **EXIF through the Photo Picker: pass.** `DateTimeOriginal`, `OffsetTimeOriginal` and `Orientation` are identical to the original; GPS is zeroed. Photos with no EXIF (screenshots, downloads) were not tested, so keep the capture date nullable.
-4. **Orientation and resizing: pass.** Native resize copies the orientation tag and the date and does not rotate the pixels. Flutter's codec and `image` 4.12 both apply the tag on decode (tags 1, 3, 6, 8), and re-encoding with `image` clears it, so there is no double rotation. A 50 MP photo resized natively took about 217 ms and +40 MB, against 1.8 s and +138 MB in a pure-Dart isolate; neither ran out of memory on the S25. Importing 20 photos took about 1.9 s, and 40 about 3.8 s. At `imageQuality: 85` the mean output was 271 KB. The low-RAM device check was dropped because the S25 is the target. **HEIC was not tested** (the camera produces JPEG); an Android HEIC pick is still unverified, and ADR-0004 needs a conversion step if it ever appears.
+4. **Orientation and resizing: pass.** Native resize copies the orientation tag and the date and does not rotate the pixels. Flutter's codec and `image` 4.12 both apply the tag on decode (tags 1, 3, 6, 8), and re-encoding with `image` clears it, so there is no double rotation. A 50 MP photo resized natively took about 217 ms and +40 MB, against 1.8 s and +138 MB in a pure-Dart isolate; neither ran out of memory on the S25. Importing 20 photos took about 1.9 s, and 40 about 3.8 s. At `imageQuality: 85` the mean output was 271 KB. The low-RAM device check was dropped because the S25 is the target. **HEIC is out of scope** (dropped 2026-10-16: the photos on the target device are JPEG); revisit it with the iPhone work, and add a conversion step to ADR-0004 if it ever appears.
 5. **Lost data: pass with two caveats.** After a process death the result was recoverable through `retrieveLostData()`, but only if the call runs after the pick finishes (call it on resume too), and the recovered file is unresized. The "Don't keep activities" option alone did not destroy the activity while the picker sheet was shown.
 6. **EXIF reader: `image` package** (`decodeJpgExif`), no new dependency.
 
-Not verified: HEIC, photos without EXIF, a real 50 MP camera file, and a true low-memory kill.
+Not verified: photos without EXIF and a true low-memory kill. A real 50 MP camera file was dropped (the S25 shoots 12 MP by default).
 
 ## Rejected alternatives
 
