@@ -1,6 +1,6 @@
 # ADR-0011: Hosting and CI — move from GitLab.com to GitHub (public), GitHub Actions
 
-- Status: Accepted (2026-10-16; the first Actions run and the first tag have not happened yet, see Open items)
+- Status: Accepted (2026-10-16; verified end to end with the `v0.0.2` dry run, see Open items)
 - Date: 2026-10-16
 - Amends: [ADR-0007](0007-tooling-ci-flutter-pinning-codegen.md) (CI section and compute budget), [ADR-0010](0010-apk-distribution.md) (secrets, versioning, storage, who can download)
 - Related: ADR-0003
@@ -39,7 +39,8 @@ The repository was on the GitLab.com free tier, which allows 400 shared-runner m
 
 ## Open items
 
-- Run the workflow on the first pull request and fix what fails; it has not been executed.
-- Create the `release` environment, restrict it to `v*` tags, and add the four secrets before the first tag.
-- Re-measure `check` duration on GitHub runners and update the figure in ADR-0007 if it matters.
-- Smoke-test the first release APK on a device before sharing it (ADR-0010).
+- ~~Run the workflow on the first pull request and fix what fails.~~ `check` and the debug `build-apk` passed on PR #6 (2026-10-16). The `release` job is skipped on pull requests by design.
+- ~~Create the `release` environment, restrict it to `v*` tags, and add the four secrets before the first tag.~~ Done 2026-10-16. The existing keystore was reused, so no APK signed with a different key exists.
+- ~~Exercise the release job.~~ Tag `v0.0.2` ran `check` and `release` successfully on 2026-10-16. The APK is signed with the author's release certificate (not the debug key), `dev.isong.snapcell`, versionName 0.0.2, versionCode 2 (`github.run_number`), arm64 only. The `v0.0.2` release is kept; it is a pre-release version.
+- Re-measure `check` duration on GitHub runners (1m45s on PR #6, with a cold cache) and update the figure in ADR-0007 if it matters.
+- Smoke test of the release APK: installed and launched on a physical phone on 2026-10-16, scaffold only. See ADR-0010 for what is still open.
