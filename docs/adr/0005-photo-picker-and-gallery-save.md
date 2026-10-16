@@ -1,6 +1,6 @@
 # ADR-0005: Photo picker and gallery save — `image_picker` + `gal`
 
-- Status: Accepted. Verified on a Galaxy S25 (Android 17, API 37) by [spike 002](../spikes/002-photo-picker-and-gal.md). Not verified on API 36, HEIC, or photos without EXIF (see Verification results).
+- Status: Accepted. Verified on a Galaxy S25 (Android 17, API 37) by [spike 002](../spikes/002-photo-picker-and-gal.md). Not verified for HEIC or photos without EXIF (see Verification results).
 - Date: 2026-10-15
 - Resolves: the deferred package choice in ADR-0001 (Consequences) and ADR-0002 (Consequences)
 
@@ -87,7 +87,7 @@ Run on a Galaxy S25 (`SM-S931U1`, Android 17, API 37). Details and numbers are i
 5. **Lost data: pass with two caveats.** After a process death the result was recoverable through `retrieveLostData()`, but only if the call runs after the pick finishes (call it on resume too), and the recovered file is unresized. The "Don't keep activities" option alone did not destroy the activity while the picker sheet was shown.
 6. **EXIF reader: `image` package** (`decodeJpgExif`), no new dependency.
 
-Not verified: API 36, HEIC, photos without EXIF, a real 50 MP camera file, and a true low-memory kill.
+Not verified: HEIC, photos without EXIF, a real 50 MP camera file, and a true low-memory kill.
 
 ## Rejected alternatives
 

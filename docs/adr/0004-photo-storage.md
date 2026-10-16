@@ -1,6 +1,6 @@
 # ADR-0004: Photo storage — copy in, downscaled
 
-- Status: Accepted. Verified on a Galaxy S25 (API 37) by [spike 002](../spikes/002-photo-picker-and-gal.md), which changed the downscale step: native resize replaces the isolate downscale for normal imports, which stays only for recovered picks. Not yet verified on API 36, HEIC, or photos without EXIF.
+- Status: Accepted. Verified on a Galaxy S25 (API 37) by [spike 002](../spikes/002-photo-picker-and-gal.md), which changed the downscale step: native resize replaces the isolate downscale for normal imports, which stays only for recovered picks. Not yet verified for HEIC or photos without EXIF.
 - Date: 2026-10-15
 - Resolves: OQ-2 in `docs/requirements.md`
 

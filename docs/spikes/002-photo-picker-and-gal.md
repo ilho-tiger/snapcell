@@ -4,7 +4,7 @@
 - Date: 2026-10-16
 - Verifies: [ADR-0005](../adr/0005-photo-picker-and-gallery-save.md) open items 1–6, with input for [ADR-0004](../adr/0004-photo-storage.md) (downscale, capture date)
 - Code: directory `spike/exif_spike/` on branch `spike/photo-picker-gal`, commit `f4e6717` (throwaway, never merged to `main`; keep the branch so the numbers stay reproducible)
-- Status: **done on the S25 (Android 17, API 37). Not run on API 36.** The ADR minimum is Android 16, so see Not verified. ADR-0004 and ADR-0005 are updated accordingly.
+- Status: **done on the S25 (Android 17, API 37), the target device.** An API 36 emulator pass was dropped on 2026-10-16 because the S25 is the target. ADR-0004 and ADR-0005 are updated accordingly.
 
 ## Question
 
@@ -35,7 +35,7 @@ The app (`spike/exif_spike/lib/main.dart`) has one button per case and logs `SPI
 
 ### Limits
 
-- One device, API 37 only. See Not verified for API 36.
+- One device, the S25 on API 37. No API 36 pass was run (dropped, the S25 is the target).
 - Only JPEG was tested. This S25's camera produces JPEG by default, and `DCIM/Camera` held no HEIC.
 - The 50 MP file is synthetic, so the file size (4.8 MB) is not representative of a real 50 MP photo.
 - Photos from outside the camera (screenshots, downloads, messenger images) were not tested for EXIF.
@@ -141,7 +141,6 @@ All runs on the same 19 most recent camera photos plus `big50.jpg` (and 20 more 
 
 ## Not verified
 
-- [ ] **API 36 (Android 16).** Everything ran on API 37. The emulator `snapcell_pixel` (API 36) was not used; behavior of the Photo Picker and MediaStore is expected to match but is unconfirmed.
 - [ ] **HEIC.** The camera produced JPEG only. Whether `pickMultiImage` returns HEIC or converts it is untested.
 - [ ] **Photos without EXIF** (screenshots, downloads, messenger images), and photos edited in the gallery app.
 - [ ] A **real 50 MP camera photo** (the 50 MP file is synthetic).
