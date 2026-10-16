@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:ui' as ui;
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +19,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   filesDir = (await getExternalStorageDirectory())!;
   outDir = await Directory(p.join(filesDir.path, 'out')).create(recursive: true);
+  await Process.run('chmod', ['777', outDir.path]);
   await Directory(p.join(filesDir.path, 'fixtures')).create(recursive: true);
   // Item 5: whether to call retrieveLostData at startup is a file flag so it
   // survives the activity being killed ("Don't keep activities").
@@ -43,8 +45,46 @@ Future<void> describe(String tag, XFile x, [int? i]) async {
   final len = await f.length();
   final copy = p.join(outDir.path, '${tag}_${i ?? 0}_${p.basename(x.path)}');
   await f.copy(copy);
+  await Process.run('chmod', ['666', copy]); // app umask is 0600; adb shell must read it
   log('FILE $tag[$i] path=${x.path} name=${x.name} bytes=$len sha=${sha(f)} copy=$copy');
 }
+
+/// Normalized centroid of the white marker block. Upright synthetic image: about (0.08, 0.20).
+String whiteCentroid(List<int> rgba, int w, int h) {
+  var sx = 0, sy = 0, n = 0;
+  for (var y = 0; y < h; y += 4) {
+    for (var x = 0; x < w; x += 4) {
+      final i = (y * w + x) * 4;
+      if (rgba[i] > 240 && rgba[i + 1] > 240 && rgba[i + 2] > 240) {
+        sx += x;
+        sy += y;
+        n++;
+      }
+    }
+  }
+  if (n == 0) return 'none';
+  return '(${(sx / n / w).toStringAsFixed(2)},${(sy / n / h).toStringAsFixed(2)})';
+}
+
+/// Pure-Dart downscale as in ADR-0004 (top-level so the isolate closure captures only strings).
+(int, int, int, int, List<int>, int, int, int) dartDownscaleJob(String path) {
+  final sw = Stopwatch()..start();
+  final bytes = File(path).readAsBytesSync();
+  final src = img.decodeJpg(bytes)!;
+  final decodeMs = sw.elapsedMilliseconds;
+  final small = img.copyResize(src,
+      width: src.width >= src.height ? 1600 : null,
+      height: src.height > src.width ? 1600 : null,
+      interpolation: img.Interpolation.average);
+  final resizeMs = sw.elapsedMilliseconds - decodeMs;
+  final out = img.encodeJpg(small, quality: 85);
+  final encodeMs = sw.elapsedMilliseconds - decodeMs - resizeMs;
+  return (src.width, src.height, small.width, small.height, out, decodeMs, resizeMs, encodeMs);
+}
+
+/// Not async and not a method, so the isolate closure captures nothing but the path.
+Future<(int, int, int, int, List<int>, int, int, int)> runDartDownscale(String path) =>
+    Isolate.run(() => dartDownscaleJob(path));
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -79,23 +119,58 @@ class _HomeState extends State<Home> {
     }
   }
 
+
+  List<File> synthetic = [];
+
+  /// Item 4: how do Flutter's codec and the `image` package treat the EXIF
+  /// orientation tag in the files in out/? Logs decoded sizes; shows synthetic
+  /// (small) files only, since the real photos are private.
+  Future<void> decodeCheck() async {
+    final files = outDir
+        .listSync()
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.jpg'))
+        .toList()
+      ..sort((a, b) => a.path.compareTo(b.path));
+    final small = <File>[];
+    for (final f in files) {
+      final bytes = f.readAsBytesSync();
+      final codec = await ui.instantiateImageCodec(bytes);
+      final fr = await codec.getNextFrame();
+      final w = fr.image.width, h = fr.image.height;
+      final rgba = (await fr.image.toByteData(format: ui.ImageByteFormat.rawRgba))!.buffer.asUint8List();
+      final flutterWhite = whiteCentroid(rgba, w, h);
+      fr.image.dispose();
+      final codecT = await ui.instantiateImageCodec(bytes, targetWidth: 343);
+      final frT = await codecT.getNextFrame();
+      final tw = frT.image.width, th = frT.image.height;
+      frT.image.dispose();
+      final d = img.decodeJpg(bytes)!;
+      final tag = d.exif.imageIfd.orientation;
+      final baked = img.bakeOrientation(d);
+      log('DECODE ${p.basename(f.path)} bytes=${bytes.length} '
+          'flutterCodec=${w}x$h flutterCodecTarget343=${tw}x$th '
+          'imagePkg=${d.width}x${d.height} exifOrientation=$tag baked=${baked.width}x${baked.height} '
+          'whiteFlutter=$flutterWhite whiteImagePkg=${whiteCentroid(d.convert(numChannels: 4).getBytes(order: img.ChannelOrder.rgba), d.width, d.height)} '
+          'whiteBaked=${whiteCentroid(baked.convert(numChannels: 4).getBytes(order: img.ChannelOrder.rgba), baked.width, baked.height)}');
+      if (bytes.length < 200000) small.add(f);
+    }
+    setState(() {
+      synthetic = small;
+      status = 'decode check done (${files.length} files)';
+    });
+  }
+
   Future<void> dartDownscale() async {
-    final x = lastUnresized;
-    if (x == null) return setState(() => status = 'pick unresized first');
+    // Uses the pushed original (same bytes as an unresized pick, minus GPS redaction).
+    final name = lastUnresized?.path ?? p.join(filesDir.path, 'fixtures', 'big50.jpg');
     final sw = Stopwatch()..start();
     try {
-      final r = await Isolate.run(() {
-        final src = img.decodeJpg(File(x.path).readAsBytesSync())!;
-        final decodeMs = 0;
-        final small = img.copyResize(src,
-            width: src.width >= src.height ? 1600 : null,
-            height: src.height > src.width ? 1600 : null,
-            interpolation: img.Interpolation.average);
-        final out = img.encodeJpg(small, quality: 85);
-        return (src.width, src.height, small.width, small.height, out, decodeMs);
-      });
-      File(p.join(outDir.path, 'dart_downscale.jpg')).writeAsBytesSync(r.$5);
-      log('DARTDOWN in=${r.$1}x${r.$2} out=${r.$3}x${r.$4} bytes=${r.$5.length} ms=${sw.elapsedMilliseconds}');
+      final r = await runDartDownscale(name);
+      final dd = File(p.join(outDir.path, 'dart_downscale.jpg'))..writeAsBytesSync(r.$5);
+      await Process.run('chmod', ['666', dd.path]);
+      log('DARTDOWN in=${r.$1}x${r.$2} out=${r.$3}x${r.$4} bytes=${r.$5.length} '
+          'totalMs=${sw.elapsedMilliseconds} decodeMs=${r.$6} resizeMs=${r.$7} encodeMs=${r.$8}');
       setState(() => status = 'dart downscale ${sw.elapsedMilliseconds} ms');
     } catch (e) {
       log('DARTDOWN ERROR $e');
@@ -140,13 +215,18 @@ class _HomeState extends State<Home> {
         b('Pick (1600, quality 85)', () => pick('r1600q85', max: 1600, q: 85)),
         b('Pick bulk (no resize, limit)', () => pick('bulkraw', limit: limit)),
         b('Pick bulk (1600, limit)', () => pick('bulk1600', max: 1600, limit: limit)),
+        b('Pick bulk (1600, q85, limit)', () => pick('bulk1600q85', max: 1600, q: 85, limit: limit)),
         TextField(controller: limitCtl, decoration: const InputDecoration(labelText: 'limit')),
         b('Dart isolate downscale of last unresized pick', dartDownscale),
         const Divider(),
+        b('Decode check (orientation)', decodeCheck),
+        Wrap(children: [
+          for (final f in synthetic)
+            Padding(padding: const EdgeInsets.all(4), child: Image.file(f, width: 160)),
+        ]),
         b('gal: putImage fixture', galSave),
         b('gal: putImage bad path', () => galSave(badPath: true)),
         const Divider(),
-        if (lastUnresized != null) Image.file(File(lastUnresized!.path), height: 200),
       ]),
     );
   }
