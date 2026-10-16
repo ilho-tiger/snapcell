@@ -95,12 +95,13 @@ build-release:
   script:
     - |
       echo "$CI_COMMIT_TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || { echo "Tag must look like v1.2.3"; exit 1; }
-      for v in ANDROID_KEYSTORE ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_PASSWORD ANDROID_KEY_ALIAS; do
+      for v in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_PASSWORD ANDROID_KEY_ALIAS; do
         eval "val=\${$v:-}"
         [ -n "$val" ] || { echo "$v is not set (protected variable, protected tag required)"; exit 1; }
       done
+      echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$CI_PROJECT_DIR/release.jks"
       printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=%s\n' \
-        "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" "$ANDROID_KEYSTORE" \
+        "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" "$CI_PROJECT_DIR/release.jks" \
         > app/android/key.properties
     - >
       cd app && flutter build apk --release --target-platform android-arm64
