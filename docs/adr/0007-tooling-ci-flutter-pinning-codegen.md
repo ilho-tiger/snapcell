@@ -90,5 +90,5 @@ Release jobs on tags are in [ADR-0010](0010-apk-distribution.md).
 - Flutter version chosen at scaffolding: 3.47.7 (2026-10-16).
 - Confirm where `gen_l10n` writes its output in that version, and set the gitignore rule accordingly.
 - Confirm the pub workspace syntax (ADR-0003) works with the cache and `dart test` paths used above.
-- Measure the `check` job's real duration after the lean pipeline's first run and record it here. Target: about 3 minutes.
+- Measured 2026-10-16: the `check` job took 126 s (about 2.1 billed minutes) with warm Flutter and pub caches. Re-measure when drift and `build_runner` are added.
 - An alternative if the quota still binds: register the author's machine as a project runner (not counted against shared minutes).
