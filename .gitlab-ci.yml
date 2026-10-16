@@ -1,0 +1,83 @@
+image: ghcr.io/cirruslabs/flutter:3.44.0
+
+stages:
+  - check
+  - test
+  - build
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+variables:
+  FLUTTER_HOME: $CI_PROJECT_DIR/.flutter
+  PUB_CACHE: $CI_PROJECT_DIR/.pub-cache
+  GRADLE_USER_HOME: $CI_PROJECT_DIR/.gradle
+
+.flutter:
+  cache:
+    - key:
+        prefix: flutter
+        files:
+          - .fvmrc
+      paths:
+        - .flutter
+    - key:
+        prefix: pub
+        files:
+          - pubspec.lock
+      paths:
+        - .pub-cache
+  before_script:
+    - FLUTTER_VERSION=$(grep -o '[0-9][0-9.]*' .fvmrc)
+    - '[ -d "$FLUTTER_HOME" ] || git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$FLUTTER_HOME"'
+    - export PATH="$FLUTTER_HOME/bin:$PATH"
+    - flutter --version
+    - flutter pub get
+
+analyze:
+  extends: .flutter
+  stage: check
+  script:
+    - (cd app && flutter analyze)
+    - (cd packages/sheet_engine && dart analyze)
+    - dart format --output=none --set-exit-if-changed app packages
+
+test-engine:
+  extends: .flutter
+  stage: test
+  script:
+    - cd packages/sheet_engine && dart test
+
+test-app:
+  extends: .flutter
+  stage: test
+  script:
+    - cd app && flutter test
+
+build-apk:
+  extends: .flutter
+  stage: build
+  cache:
+    - key:
+        prefix: flutter
+        files:
+          - .fvmrc
+      paths:
+        - .flutter
+    - key:
+        prefix: pub
+        files:
+          - pubspec.lock
+      paths:
+        - .pub-cache
+    - key: gradle
+      paths:
+        - .gradle
+  script:
+    - cd app && flutter build apk --debug
+  artifacts:
+    paths:
+      - app/build/app/outputs/flutter-apk/app-debug.apk
+    expire_in: 1 week
