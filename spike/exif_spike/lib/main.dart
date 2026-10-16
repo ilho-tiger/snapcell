@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'dart:isolate';
 import 'dart:ui' as ui;
 
@@ -34,6 +35,14 @@ Future<void> main() async {
       await describe('lost', f);
     }
   }
+  // Event-loop responsiveness: log any gap > 50 ms between 8 ms timer ticks.
+  var last = DateTime.now();
+  Timer.periodic(const Duration(milliseconds: 8), (_) {
+    final now = DateTime.now();
+    final gap = now.difference(last).inMilliseconds;
+    if (gap > 50) log('GAP at=${now.millisecondsSinceEpoch} gapMs=$gap');
+    last = now;
+  });
   runApp(const MaterialApp(home: Home()));
 }
 
@@ -210,15 +219,39 @@ class _HomeState extends State<Home> {
       appBar: AppBar(title: const Text('exif_spike')),
       body: ListView(padding: const EdgeInsets.all(12), children: [
         Text(status),
+        b('retrieveLostData now', () async {
+          final r = await ImagePicker().retrieveLostData();
+          log('LOST now: isEmpty=${r.isEmpty} files=${r.files?.map((f) => f.path).toList()} exception=${r.exception} type=${r.type}');
+          for (final f in r.files ?? <XFile>[]) {
+            await describe('lostnow', f);
+          }
+          setState(() => status = 'lostData isEmpty=${r.isEmpty} files=${r.files?.length}');
+        }),
         b('Pick (no resize)', () => pick('raw')),
         b('Pick (maxWidth/Height 1600)', () => pick('r1600', max: 1600)),
         b('Pick (1600, quality 85)', () => pick('r1600q85', max: 1600, q: 85)),
         b('Pick bulk (no resize, limit)', () => pick('bulkraw', limit: limit)),
         b('Pick bulk (1600, limit)', () => pick('bulk1600', max: 1600, limit: limit)),
         b('Pick bulk (1600, q85, limit)', () => pick('bulk1600q85', max: 1600, q: 85, limit: limit)),
+        b('Pick bulk (1600, q85, limit 40)', () => pick('bulk40', max: 1600, q: 85, limit: 40)),
+        b('Pick (limit 5, no resize)', () => pick('limit5', limit: 5)),
         TextField(controller: limitCtl, decoration: const InputDecoration(labelText: 'limit')),
         b('Dart isolate downscale of last unresized pick', dartDownscale),
         const Divider(),
+        b('EXIF read check (image pkg)', () async {
+          final dir = Directory(p.join(filesDir.path, 'exifcheck'));
+          final files = dir.listSync().whereType<File>().where((f) => f.path.endsWith('.jpg')).toList()
+            ..sort((a, b) => a.path.compareTo(b.path));
+          for (final f in files) {
+            final sw = Stopwatch()..start();
+            final e = img.decodeJpgExif(f.readAsBytesSync());
+            final us = sw.elapsedMicroseconds;
+            final dt = e?.exifIfd.data[0x9003]?.toString();
+            final off = e?.exifIfd.data[0x9011]?.toString();
+            log('EXIFREAD ${p.basename(f.path)} dt=$dt offset=$off orient=${e?.imageIfd.orientation} us=$us');
+          }
+          setState(() => status = 'exif read ${files.length} files');
+        }),
         b('Decode check (orientation)', decodeCheck),
         Wrap(children: [
           for (final f in synthetic)
