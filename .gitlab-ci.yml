@@ -2,35 +2,51 @@ image: ghcr.io/cirruslabs/flutter:3.44.0
 
 stages:
   - check
-  - test
   - build
   - release
 
 workflow:
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - app/**/*
+        - packages/**/*
+        - pubspec.yaml
+        - pubspec.lock
+        - .fvmrc
+        - .gitlab-ci.yml
 
 variables:
   FLUTTER_HOME: $CI_PROJECT_DIR/.flutter
   PUB_CACHE: $CI_PROJECT_DIR/.pub-cache
   GRADLE_USER_HOME: $CI_PROJECT_DIR/.gradle
 
+.cache-flutter: &cache-flutter
+  key:
+    prefix: flutter
+    files:
+      - .fvmrc
+  paths:
+    - .flutter
+
+.cache-pub: &cache-pub
+  key:
+    prefix: pub
+    files:
+      - pubspec.lock
+  paths:
+    - .pub-cache
+
+.cache-gradle: &cache-gradle
+  key: gradle
+  paths:
+    - .gradle
+
 .flutter:
   cache:
-    - key:
-        prefix: flutter
-        files:
-          - .fvmrc
-      paths:
-        - .flutter
-    - key:
-        prefix: pub
-        files:
-          - pubspec.lock
-      paths:
-        - .pub-cache
+    - *cache-flutter
+    - *cache-pub
   before_script:
     - FLUTTER_VERSION=$(grep -o '[0-9][0-9.]*' .fvmrc)
     - '[ -d "$FLUTTER_HOME" ] || git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$FLUTTER_HOME"'
@@ -38,49 +54,32 @@ variables:
     - flutter --version
     - flutter pub get
 
-analyze:
+.flutter-android:
+  extends: .flutter
+  cache:
+    - *cache-flutter
+    - *cache-pub
+    - *cache-gradle
+
+check:
   extends: .flutter
   stage: check
+  interruptible: true
   script:
     - (cd app && flutter analyze)
     - (cd packages/sheet_engine && dart analyze)
     - dart format --output=none --set-exit-if-changed app packages
-
-test-engine:
-  extends: .flutter
-  stage: test
-  script:
-    - cd packages/sheet_engine && dart test
-
-test-app:
-  extends: .flutter
-  stage: test
-  script:
-    - cd app && flutter test
+    - (cd packages/sheet_engine && dart test)
+    - (cd app && flutter test)
 
 build-apk:
-  extends: .flutter
+  extends: .flutter-android
   stage: build
+  interruptible: true
   rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - when: on_success
-  cache:
-    - key:
-        prefix: flutter
-        files:
-          - .fvmrc
-      paths:
-        - .flutter
-    - key:
-        prefix: pub
-        files:
-          - pubspec.lock
-      paths:
-        - .pub-cache
-    - key: gradle
-      paths:
-        - .gradle
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true
   script:
     - cd app && flutter build apk --debug
   artifacts:
@@ -89,26 +88,10 @@ build-apk:
     expire_in: 1 week
 
 build-release:
-  extends: .flutter
+  extends: .flutter-android
   stage: build
   rules:
     - if: $CI_COMMIT_TAG
-  cache:
-    - key:
-        prefix: flutter
-        files:
-          - .fvmrc
-      paths:
-        - .flutter
-    - key:
-        prefix: pub
-        files:
-          - pubspec.lock
-      paths:
-        - .pub-cache
-    - key: gradle
-      paths:
-        - .gradle
   script:
     - |
       echo "$CI_COMMIT_TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || { echo "Tag must look like v1.2.3"; exit 1; }
@@ -130,6 +113,7 @@ build-release:
 
 publish:
   stage: release
+  image: curlimages/curl:8.23.0
   rules:
     - if: $CI_COMMIT_TAG
   needs:
