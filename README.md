@@ -58,3 +58,25 @@ fvm flutter analyze && fvm dart format --output=none --set-exit-if-changed .
 Generated code (`*.g.dart`, drift) is not committed. Once drift is added, run
 `fvm dart run build_runner build --delete-conflicting-outputs` after cloning
 (see ADR-0007).
+
+## Releasing
+
+Releases are signed arm64 APKs that CI builds when a `v*` tag is pushed (ADR-0010). They are not published to a store: project members download the APK from **Deploy > Releases**.
+
+One-time setup:
+
+1. Create the release keystore outside the repository:
+   ```sh
+   keytool -genkeypair -v -keystore ~/snapcell-release.jks -storetype JKS \
+     -keyalg RSA -keysize 2048 -validity 10000 -alias snapcell
+   ```
+2. Back up the keystore file and its passwords somewhere outside GitLab. If they are lost nobody can update the app in place, and users lose their data by reinstalling.
+3. Protect the tag pattern `v*` (Settings > Repository > Protected tags).
+4. Add these CI/CD variables (Settings > CI/CD > Variables), all **Protected**:
+   - `ANDROID_KEYSTORE_BASE64`: output of `base64 < ~/snapcell-release.jks | tr -d '\n'`, masked and hidden
+   - `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`: masked and hidden
+   - `ANDROID_KEY_ALIAS`: `snapcell`
+
+To release: `git tag v0.1.0 && git push origin v0.1.0`. A release pipeline costs roughly 10 minutes of the free-tier shared-runner quota (400 per month); a normal check run costs about 2.
+
+Installing: allow installs from unknown sources for the app you download with (Android or Play Protect may warn about an unknown source). Later releases update in place because they use the same key. A debug build from a laptop uses a different key, so uninstall it before installing a release.
