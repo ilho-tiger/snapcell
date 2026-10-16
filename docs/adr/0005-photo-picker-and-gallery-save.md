@@ -64,7 +64,7 @@ Package status checked on pub.dev on 2026-10-15:
 - Pass `album: 'Snapcell'` so output is grouped and easy to find when printing. With API 36 this inserts into `Pictures/Snapcell` through `MediaStore` `RELATIVE_PATH`, with no permission.
 - Manifest: no storage permission and no `requestLegacyExternalStorage`. Do not copy those lines from `gal`'s README; they are for API 29 and below.
 - Access checks are unnecessary (`gal` returns true without a prompt above API 29). Still catch `GalException`.
-- Map `accessDenied`, `notEnoughSpace` and `notSupportedFormat` to user-facing messages. A nonexistent path throws `notSupportedFormat` (observed), so that message must not blame the format alone. `accessDenied` and `notEnoughSpace` were not triggered.
+- Map `accessDenied`, `notEnoughSpace` and `notSupportedFormat` to user-facing messages. A nonexistent path throws `notSupportedFormat` (observed), so that message must not blame the format alone. `accessDenied` and `notEnoughSpace` were not triggered. Treat those two mappings as unverified: the type only picks the message. Any unmapped `GalException` type or other exception becomes the generic `failed(error)` state with the existing retry (ADR-0002), and the mapping is tested by throwing each type from a fake `SheetSaver`. If a device shows wrong behavior later, handle it as a defect.
 
 ## Consequences
 
