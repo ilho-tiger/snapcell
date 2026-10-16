@@ -1,0 +1,5 @@
+package dev.snapcell.spike.jpeg_spike
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()
