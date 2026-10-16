@@ -89,4 +89,5 @@ Enable "install unknown apps" for the app used to open the download. Android or 
 - ~~Confirm that `--build-number` and `--build-name` override `pubspec.yaml`.~~ Verified locally with Flutter 3.47.7 on 2026-10-16: versionCode and versionName in the built APK came from the flags.
 - Confirm that arm64-only is acceptable for every intended user's phone.
 - Confirm how R8 shrinking is configured for release builds in the scaffold, and run the first release build on a device.
+  - 2026-10-16: the signed release APK from `v0.0.2` (scaffold only, no plugins) installed and launched on a physical phone. This shows signing and packaging work. It does not exercise R8 against plugin code, so repeat the check when the first plugin from ADR-0004, ADR-0005 or ADR-0006 is added (`adb logcat -s AndroidRuntime` after launch).
 - Add the install notes above to the README when the pipeline exists.
