@@ -49,7 +49,7 @@ Build for **arm64 only** (`--target-platform android-arm64`). This produces one 
 
 | Pipeline | Jobs |
 |---|---|
-| Merge request, `main` | As in ADR-0007: `analyze`, `test-engine`, `test-app`, `build-apk` (debug, a build check only; artifact kept 1 week) |
+| Merge request (code changes only) | As in ADR-0007: `check`, and a manual `build-apk` (debug, a build check; artifact kept 1 week) |
 | Tag `v*` | The same check and test jobs, then `build-release`, `publish`, `release` |
 
 - `build-release` runs with the Flutter version pinned in `.fvmrc` (ADR-0007), writes `key.properties`, builds the signed APK, and keeps it as a job artifact for 1 week. This artifact only passes the file to the next job.

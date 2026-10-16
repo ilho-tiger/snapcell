@@ -51,13 +51,20 @@ One `.gitlab-ci.yml` with these jobs, running on GitLab.com shared runners, on a
 
 | Stage | Job | Command |
 |---|---|---|
-| `check` | `analyze` | `dart run build_runner build`, then `flutter analyze` and `dart format --output=none --set-exit-if-changed .` |
-| `test` | `test-engine` | `dart test` in `packages/sheet_engine` (no code generation needed) |
-| `test` | `test-app` | `dart run build_runner build`, then `flutter test` in `app` |
-| `build` | `build-apk` | `flutter build apk --debug`, artifact kept for a short time |
+| `check` | `check` | `flutter analyze` and `dart analyze`, `dart format --output=none --set-exit-if-changed app packages`, `dart test` in `packages/sheet_engine`, `flutter test` in `app`. Once drift is added, `dart run build_runner build` runs first. |
+| `build` | `build-apk` | `flutter build apk --debug`. Manual on merge requests (not run automatically); artifact kept 1 week. |
+
+Release jobs on tags are in [ADR-0010](0010-apk-distribution.md).
+
+**Compute budget.** The project is on the GitLab free tier: 400 shared-runner minutes per month, billed as the sum of job durations. The first pipeline (analyze, test-engine, test-app and an automatic debug build) cost 14.2 minutes, about 28 runs a month, and about 3.5 of those minutes were pulling the same Flutter image once per job. The pipeline is therefore kept lean:
+
+- One `check` job, so the image is pulled and Flutter set up once.
+- The debug APK build is manual on merge requests. The signed release build on tags is the real APK build.
+- Pipelines run only on merge requests that change `app/`, `packages/`, the pubspecs, `.fvmrc` or `.gitlab-ci.yml`, and on tags. Documentation-only changes cost nothing, and `main` is not rebuilt after a merge.
+- `check` and `build-apk` are `interruptible`, so a newer push cancels an older run.
 
 - Cache the pub cache (`PUB_CACHE`), keyed on `pubspec.lock`. `pubspec.lock` is committed for `app` (an application, not a library).
-- Pipelines run on merge requests and on `main`.
+- Pipelines do not run on `main`: the merge request pipeline already ran the same code.
 - Store upload is out of scope. Signed release APKs, signing, and distribution on `v*` tags are decided in [ADR-0010](0010-apk-distribution.md).
 - The company proxy variables (`http_proxy`, `https_proxy`, `no_proxy`) are **not** added: they apply to the `code.siemens.com` runners only, and this is a personal gitlab.com project.
 - On-device checks (ADR-0004, ADR-0005, ADR-0006) cannot run in this pipeline and stay manual. CI covers `dart test` and `flutter test` only.
@@ -83,4 +90,5 @@ One `.gitlab-ci.yml` with these jobs, running on GitLab.com shared runners, on a
 - Flutter version chosen at scaffolding: 3.47.7 (2026-10-16).
 - Confirm where `gen_l10n` writes its output in that version, and set the gitignore rule accordingly.
 - Confirm the pub workspace syntax (ADR-0003) works with the cache and `dart test` paths used above.
-- Confirm GitLab.com shared runner time is enough for `flutter build apk`; if not, drop `build-apk` from merge requests and run it on `main` only.
+- Measure the `check` job's real duration after the lean pipeline's first run and record it here. Target: about 3 minutes.
+- An alternative if the quota still binds: register the author's machine as a project runner (not counted against shared minutes).
