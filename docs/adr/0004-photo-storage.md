@@ -1,6 +1,6 @@
 # ADR-0004: Photo storage — copy in, downscaled
 
-- Status: Accepted, pending #3 (EXIF capture date may be missing, which would make it nullable; ADR-0005 item 4 may replace the isolate downscale; do not build on these points as settled)
+- Status: Accepted. Verified on a Galaxy S25 (API 37) by [spike 002](../spikes/002-photo-picker-and-gal.md), which changed the downscale step: native resize replaces the isolate downscale for normal imports, which stays only for recovered picks. Not yet verified for HEIC or photos without EXIF.
 - Date: 2026-10-15
 - Resolves: OQ-2 in `docs/requirements.md`
 
@@ -13,7 +13,7 @@ Facts that shape the decision:
 - The printed photo is small: about 343 × 224 px for a 29 × 19 mm photo rectangle at 300 DPI (FR-6.5). Phone originals are 12 MP or more, far beyond what is needed.
 - A referenced photo can disappear from the gallery (deleted, moved, or access revoked). The requirements left the behavior at generation time undefined (gap in §7, "Missing photo at generation").
 - There is no backup or export in v1 (§5). Uninstalling the app already loses associations, favorites and comments.
-- Android scoped storage and photo-picker permissions make long-lived references to gallery items fragile. Package behavior is not yet verified.
+- Android scoped storage and photo-picker permissions make long-lived references to gallery items fragile. Spike 002 verified the picker behavior on a device (see Decision).
 
 ## Options considered
 
@@ -29,7 +29,10 @@ Facts that shape the decision:
 
 **Copy each photo into the app's private storage at import time, downscaled to about 1600 px on the long edge.**
 
-- Downscaling runs in a background isolate so the UI stays responsive.
+- **Import uses the picker's native resize**: `pickMultiImage(maxWidth: 1600, maxHeight: 1600, imageQuality: 85)`. Spike 002 measured it at about 217 ms and +40 MB for a 50 MP photo, and about 1.9 s for 20 photos, against 1.8 s and +138 MB for a pure-Dart isolate downscale. **Set `imageQuality` explicitly:** the default produced about 960 KB per photo, against a mean of 271 KB at 85.
+- **The pure-Dart downscale (`image` package, in a background isolate) is kept only for recovered picks.** `retrieveLostData()` returns the file unresized, so the import step must cap a full-size file at 1600 px itself (about 1.8 s for 50 MP on the S25).
+- **Orientation:** native resize copies the EXIF orientation tag and does not rotate the pixels. Flutter's codec and `image` 4.12 both apply the tag on decode (checked for tags 1, 3, 6 and 8), and `image` clears it when it re-encodes, so do not rotate by hand: that would double-rotate.
+- **Capture date** is read from EXIF `DateTimeOriginal` of the picked file with `decodeJpgExif` from the `image` package (no extra dependency), and kept date-only. The picker preserves it, but it can still be absent for photos from outside the camera, which is why `capture_date` stays nullable in ADR-0009. GPS is zeroed by the picker, and nothing stores it.
 - The database stores the file path relative to the app's files directory (for example `photos/<id>.jpg`), resolved at read time, the original capture date (metadata only, FR-1.1), and the comment (FR-1.5). The `photo` table is defined in [ADR-0009](0009-data-model.md).
 - Each stored copy belongs to exactly one date. Picking the same gallery photo for another date is a separate import (FR-1.3).
 - Generation reads only the stored copy. It never touches the gallery.
@@ -42,7 +45,7 @@ Facts that shape the decision:
 
 The file system and the database cannot be updated atomically, so a crash can land between the two steps. The design keeps one invariant: **a row always points to an existing file; a file without a row is tolerated and garbage-collected.** A dangling row (broken photo in the UI, failed generation) is worse than an orphan file (wasted space), so every operation orders its steps to fail toward orphan files.
 
-- **Import:** downscale to `photos/<id>.jpg.tmp`, rename to `photos/<id>.jpg`, then insert the row. A crash before the rename leaves a `.tmp` file; a crash between rename and insert leaves a rowless file. Neither is visible to the user.
+- **Import:** copy the picked file (already resized by the picker; downscaled in Dart for a recovered pick) to `photos/<id>.jpg.tmp`, rename to `photos/<id>.jpg`, then insert the row. A crash before the rename leaves a `.tmp` file; a crash between rename and insert leaves a rowless file. Neither is visible to the user.
 - **Remove (FR-1.6):** delete the row in a transaction, then delete the file. A crash between the two leaves a rowless file.
 - **Replace (FR-1.6):** import the new photo first, then remove the old one. A crash between the two leaves both photos on the date, which the user can resolve by removing one.
 - **Startup sweep:** the `photos/` cleanup is part of the single `StartupReconciler` defined in [ADR-0002](0002-state-management-and-persistence.md#startup-reconciliation). It deletes `*.tmp` files and files with no row, and runs before imports are enabled.
@@ -52,7 +55,7 @@ The file system and the database cannot be updated atomically, so a crash can la
 
 - The "photo vanished from the gallery" case no longer exists, so the missing-photo gap in §7 is resolved.
 - No persistent gallery permissions or long-lived URIs are needed after import.
-- Storage grows by roughly 300–500 KB per imported photo. This is acceptable for a diary app.
+- Storage grows by roughly 300–500 KB per imported photo (measured mean 271 KB at quality 85, 143–415 KB). This is acceptable for a diary app.
 - If the user configures a cell or DPI so large that it exceeds 1600 px, output is upscaled and softer. The cap is a documented limit, and the value can be raised later if needed (existing copies would stay at their original cap).
 - Deleting the original from the gallery has no effect on the app.
 - Reinstalling or moving to a new device starts empty, the same as uninstalling (§5). Relative paths keep a later backup or export feature possible without a data migration.
