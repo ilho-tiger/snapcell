@@ -1,4 +1,4 @@
-package com.snapcell.snapcell
+package dev.isong.snapcell
 
 import io.flutter.embedding.android.FlutterActivity
 
