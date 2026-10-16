@@ -2,13 +2,6 @@ name: CI
 
 on:
   pull_request:
-    paths:
-      - app/**
-      - packages/**
-      - pubspec.yaml
-      - pubspec.lock
-      - .fvmrc
-      - .github/workflows/**
   push:
     tags:
       - 'v*'
