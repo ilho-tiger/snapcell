@@ -3,6 +3,7 @@
 - Status: Proposed (draft; no pipeline has run, and the Flutter version is not chosen yet)
 - Date: 2026-10-15
 - Related: ADR-0001, ADR-0002, ADR-0003
+- Amended by: [ADR-0011](0011-github-hosting-and-ci.md) (hosting and CI moved from GitLab to GitHub Actions; the "CI: GitLab CI" section, its compute budget and the CI-runner row below are historical)
 
 ## Context
 

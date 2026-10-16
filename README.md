@@ -61,7 +61,7 @@ Generated code (`*.g.dart`, drift) is not committed. Once drift is added, run
 
 ## Releasing
 
-Releases are signed arm64 APKs that CI builds when a `v*` tag is pushed (ADR-0010). They are not published to a store: project members download the APK from **Deploy > Releases**.
+Releases are signed arm64 APKs that GitHub Actions builds when a `v*` tag is pushed (ADR-0010, ADR-0011). They are not published to a store: download the APK from the repository's **Releases** page. The repository is public, so anyone can.
 
 One-time setup:
 
@@ -70,13 +70,13 @@ One-time setup:
    keytool -genkeypair -v -keystore ~/snapcell-release.jks -storetype JKS \
      -keyalg RSA -keysize 2048 -validity 10000 -alias snapcell
    ```
-2. Back up the keystore file and its passwords somewhere outside GitLab. If they are lost nobody can update the app in place, and users lose their data by reinstalling.
-3. Protect the tag pattern `v*` (Settings > Repository > Protected tags).
-4. Add these CI/CD variables (Settings > CI/CD > Variables), all **Protected**:
-   - `ANDROID_KEYSTORE_BASE64`: output of `base64 < ~/snapcell-release.jks | tr -d '\n'`, masked and hidden
-   - `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`: masked and hidden
+2. Back up the keystore file and its passwords somewhere outside GitHub. If they are lost nobody can update the app in place, and users lose their data by reinstalling.
+3. Create an environment named `release` (Settings > Environments) and restrict it to the tag pattern `v*` (Deployment branches and tags > Selected branches and tags > add a tag rule).
+4. Add these secrets to the `release` environment:
+   - `ANDROID_KEYSTORE_BASE64`: output of `base64 < ~/snapcell-release.jks | tr -d '\n'`
+   - `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`
    - `ANDROID_KEY_ALIAS`: `snapcell`
 
-To release: `git tag v0.1.0 && git push origin v0.1.0`. A release pipeline costs roughly 10 minutes of the free-tier shared-runner quota (400 per month); a normal check run costs about 2.
+To release: `git tag v0.1.0 && git push origin v0.1.0`. Pull requests that change code run `check` and build a debug APK automatically.
 
 Installing: allow installs from unknown sources for the app you download with (Android or Play Protect may warn about an unknown source). Later releases update in place because they use the same key. A debug build from a laptop uses a different key, so uninstall it before installing a release.
