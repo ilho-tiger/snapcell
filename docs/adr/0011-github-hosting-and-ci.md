@@ -13,7 +13,7 @@ The repository was on the GitLab.com free tier, which allows 400 shared-runner m
 
 - The repository is `github.com/ilho-tiger/snapcell`, **public**. The GitLab project is archived (read-only) and kept for history.
 - CI is one GitHub Actions workflow, `.github/workflows/ci.yml`, with the same shape as before:
-  - `check`: on pull requests that change `app/`, `packages/`, the pubspecs, `.fvmrc` or the workflows, and on `v*` tags. Same commands as ADR-0007.
+  - `check`: on every pull request and on `v*` tags. Same commands as ADR-0007. There is no path filter: `check` is a required status check on `main`, and a filtered workflow never reports on docs-only changes, which would leave the PR blocked.
   - `build-apk` (debug): on pull requests. It is now automatic, not manual, because there is no quota to protect. Artifact kept 7 days.
   - `release`: on `v*` tags, after `check`. Builds the signed arm64 APK and creates a GitHub Release with the APK attached.
 - Flutter is installed with `subosito/flutter-action`, reading the version from `.fvmrc`, with its SDK and pub caches. This replaces the `git clone` of the SDK and the cirruslabs image. The JDK is set up with `actions/setup-java` (Temurin 17). All actions are pinned to commit SHAs, because the release job holds the signing key.
@@ -24,7 +24,7 @@ The repository was on the GitLab.com free tier, which allows 400 shared-runner m
 ## Consequences
 
 - **The signed APK and the source are public.** Anyone can download and install the app; ADR-0010's "a few project members" is no longer a restriction. Nothing secret is in git history (checked 2026-10-16 for private keys, tokens, keystores and `key.properties` before the first push). The keystore stays out of the repository.
-- The compute-budget rules in ADR-0007 (single `check` job, manual APK build, no pipeline on docs-only changes beyond the path filter, `interruptible`) no longer need to hold. Path filters are kept because they avoid pointless runs, not to save quota.
+- The compute-budget rules in ADR-0007 (single `check` job, manual APK build, no pipeline on docs-only changes beyond the path filter, `interruptible`) no longer need to hold. The path filter on pull requests was removed (see above); a docs-only PR now costs about 2 minutes of free runner time.
 - Pull requests from forks get no secrets. The release job only runs on tags, in the `release` environment.
 - Issues #1 to #5 were recreated on GitHub with the same numbers. Merge request references in earlier text (for example "MR !5") refer to GitLab.
 
