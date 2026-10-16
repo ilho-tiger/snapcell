@@ -28,10 +28,10 @@ Pushing a Git tag `v<MAJOR>.<MINOR>.<PATCH>` (for example `v0.1.0`) starts a rel
 
 - One **release keystore**, created once on the author's machine with `keytool` (RSA 2048, long validity), never committed.
 - GitLab CI/CD variables, all **protected** (available on protected tags only):
-  - `ANDROID_KEYSTORE`: type **File**
+  - `ANDROID_KEYSTORE_BASE64`: the keystore as one line of base64, masked and hidden. A File-type variable holds text and a keystore is binary, so the file is stored encoded and decoded by the job (about 2.7 kB encoded).
   - `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`: masked and hidden
   - `ANDROID_KEY_ALIAS`
-- The release job writes `app/android/key.properties` from these variables, following the structure in the Flutter Android deployment docs (checked 2026-10-16). `build.gradle.kts` reads that file for the `release` signing config.
+- The release job decodes the keystore and writes `app/android/key.properties` from these variables, following the structure in the Flutter Android deployment docs (checked 2026-10-16). `build.gradle.kts` reads that file for the `release` signing config.
 - `key.properties`, `*.jks` and `*.keystore` are added to `.gitignore`.
 - **Local `flutter run --release`** keeps working: if `key.properties` is absent the release build type falls back to the debug key. The CI release job fails if `key.properties` is missing, so a debug-signed APK cannot be published by accident.
 - **Backup:** the keystore file and its passwords are stored outside GitLab (for example in a password manager) as soon as they are created. This is a prerequisite for the first tag, not a later task.
@@ -83,6 +83,7 @@ Enable "install unknown apps" for the app used to open the download. Android or 
 
 ## Open items
 
+- Confirm GitLab accepts the base64 keystore as a masked and hidden variable (its character and length rules) when the variable is created.
 - Confirm which GitLab role a member needs to view Releases and download package files in a private project on gitlab.com, and set the members' roles accordingly.
 - ~~Confirm that `--build-number` and `--build-name` override `pubspec.yaml`.~~ Verified locally with Flutter 3.47.7 on 2026-10-16: versionCode and versionName in the built APK came from the flags.
 - Confirm that arm64-only is acceptable for every intended user's phone.
