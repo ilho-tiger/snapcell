@@ -1,6 +1,6 @@
 # ADR-0006: Background sheet generation — foreground service, resumable per sheet
 
-- Status: Proposed (no code or device run yet; see Open items)
+- Status: Accepted, verified on an API 36 emulator in [spike 003](../spikes/003-foreground-service-render.md). S25-only checks are deferred to the MVP system tests and the risk is accepted (see Open items)
 - Date: 2026-10-15
 - Amends: ADR-0002 (Generation flow, Startup reconciliation)
 
@@ -38,8 +38,8 @@ Only `Rendering` (ADR-0002) runs in the service. `ResolvingFavorites` and `Confi
 
 - **Render plan:** an ordered list of sheets, each an ordered list of `(date, photo id)` units, plus a snapshot of the configuration used (paper, DPI, margins, labels, and so on). It is persisted with the job. A later configuration edit or favorite change never alters a job already started.
 - **Service isolate:** the foreground service runs its own isolate with a drift connection to the same database file, so it survives the activity being destroyed. The UI reads job progress from drift streams, not from a handle on the service.
-- **Package:** a foreground-service plugin that provides a Dart task isolate, such as `flutter_foreground_task`, plus `flutter_local_notifications`. Neither is verified here; choose and pin them in the spike.
-- **Foreground service type:** declare `dataProcessing` (Android 15+) in the manifest. Its timeout callback must persist state and stop the service promptly. The job is then resumed at the next app start, or by the user from the notification.
+- **Packages (verified, pin these):** `flutter_foreground_task` 11.0.3 (provides the Dart task isolate) and `flutter_local_notifications` 22.3.2. The notifications package needs core library desugaring enabled in the app's Gradle config. The foreground task plugin needs Kotlin 2.2.20+ and Gradle 8.11.1+.
+- **Foreground service type:** declare `dataSync` with the `FOREGROUND_SERVICE_DATA_SYNC` permission. An earlier draft said `dataProcessing`; that type does not exist. `dataSync` is documented for "local file processing". `mediaProcessing` (API 35+) also exists and the plugin supports it, but it was not tested. `dataSync` times out after 6 hours in a 24-hour period, counted while the app is in the background. On timeout the plugin calls `onDestroy(isTimeout: true)` and the engine is torn down, so the loop stops mid-run. `onDestroy` must set the cancel flag; the job is then resumed at the next app start.
 
 ### Persistence
 
@@ -88,20 +88,33 @@ The `sheets/` row in the ADR-0002 table changes from "delete everything" to: kee
 - The `Rendering` state of the ADR-0002 state machine is now a job in a service. The controller observes and commands it. Its transitions must still be testable with `ProviderContainer`, using a fake job runner behind a `SheetRenderer` interface.
 - Render, resume, and reconciliation logic is plain Dart over interfaces (job repository, file system, renderer, notifier) and is tested with `dart test`, with no emulator.
 - Two isolates open the same SQLite file. Writers must be short and the database must use WAL mode.
-- The manifest gains the foreground service declaration, its type permission, and `POST_NOTIFICATIONS`. ADR-0005's "no permissions" consequence applies to import and save only.
+- The manifest gains the foreground service declaration (`dataSync`), `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_DATA_SYNC`, and `POST_NOTIFICATIONS`. ADR-0005's "no permissions" consequence applies to import and save only.
 - A killed process costs at most the sheet in progress, not the run.
 - The foreground notification is visible for the whole render. That is the cost of Android allowing the work to continue.
 
-## Open items (verify on a device before status becomes Accepted)
+## Verification (spike 003)
 
-Tracked as the spike in [issue #5](https://github.com/ilho-tiger/snapcell/issues/5).
+Run on an API 36 emulator. Details and logs in [spike 003](../spikes/003-foreground-service-render.md).
 
-1. **Render path in a service isolate.** `Picture.toImage` from a non-UI isolate, with the activity destroyed, is unverified. If it does not work, fall back to compositing in a pure-Dart isolate with the `image` package, driven by `sheet_engine`. That fallback gives up ADR-0001's single painter shared by preview and export, and would amend ADR-0001.
-2. **Foreground service type and timeout.** Confirm `dataProcessing` is the right type on Android 16, its timeout, and that `onTimeout` handling stops the service in time.
-3. **Survival.** Run a 20-sheet job, then (a) background the app, (b) lock the screen, (c) swipe from recents, (d) `adb shell am kill` the process. Confirm (a) to (c) finish and (d) resumes at the next sheet.
-4. **Notification permission denial.** Confirm the service and job still complete, and that the banner appears on the next launch.
-5. **Package choice.** Confirm status and Android 16 behavior of the foreground-service and notification packages on pub.dev, then pin versions.
-6. **Memory.** Peak memory of one sheet render in the service isolate on a low-RAM device.
+1. **Render path: pass.** `Picture.toImage`, `toByteData` and the JPEG encode work in the service isolate, including after the activity is destroyed. ADR-0001 needs no amendment.
+2. **Service type and timeout: `dataSync`.** See Decision. The timeout was triggered with a shortened `device_config` value and the plugin's `onDestroy(isTimeout: true)` fires.
+3. **Survival: pass.** A 20-sheet job finishes after (a) backgrounding, (b) locking the screen and (c) swiping from recents. After (d) `kill -9`, Android restarted the service by itself about 5 s later (`TaskStarter.system`), and it resumed at the next pending sheet with no UI. After a force-stop the service does not restart, and the next app start resumes the job. All 20 files were valid JPEGs with no `.tmp` leftovers.
+4. **Notification permission denied: pass for the service.** The service and job complete and no notification is posted. The next-launch banner is app logic and is not exercised by the spike.
+5. **Packages: pinned.** See Decision.
+7. **SQLite: pass.** The UI isolate read the database every 20 ms (about 350 reads during one render) while the service isolate wrote, each with its own connection in WAL mode and `busy_timeout=0`. There were no lock errors.
+
+Implementation notes from the spike:
+
+- The system can restart the service after a kill, and the app can also resume at startup. Guard against two runners: check `isRunningService` before starting, and have the service take the job row as its single owner.
+- Set a non-zero `busy_timeout` in production. The spike used 0 only to surface errors.
+
+## Open items (deferred to the MVP system tests, risk accepted on 2026-10-17)
+
+These need the S25 and are checked as part of the first version's system tests:
+
+1. **Samsung One UI battery management.** Whether it kills or restricts the foreground service during a long render. This is the main unverified risk.
+2. **Survival on the S25.** Repeat (a) to (d) from the verification above on the real device.
+3. **Memory and timing.** Peak memory of one sheet render in the service isolate. The emulator hides GPU memory and its timings (about 340 ms per sheet) are not representative.
 
 ## Rejected alternatives
 
