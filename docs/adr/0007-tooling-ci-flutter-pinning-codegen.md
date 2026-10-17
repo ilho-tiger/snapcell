@@ -1,6 +1,6 @@
-# ADR-0007: Tooling — GitLab CI, Flutter version pinning, generated code
+# ADR-0007: Tooling — CI, Flutter version pinning, generated code
 
-- Status: Proposed (draft; no pipeline has run, and the Flutter version is not chosen yet)
+- Status: Accepted (2026-10-17; Flutter pinned to 3.47.7 via `.fvmrc` and used by CI since PR #6. The CI section is superseded by ADR-0011; pinning and the generated-code policy stand)
 - Date: 2026-10-15
 - Related: ADR-0001, ADR-0002, ADR-0003
 - Amended by: [ADR-0011](0011-github-hosting-and-ci.md) (hosting and CI moved from GitLab to GitHub Actions; the "CI: GitLab CI" section, its compute budget and the CI-runner row below are historical)
@@ -88,8 +88,9 @@ Release jobs on tags are in [ADR-0010](0010-apk-distribution.md).
 
 ## Open items
 
-- Flutter version chosen at scaffolding: 3.47.7 (2026-10-16).
+- ~~Flutter version chosen at scaffolding.~~ 3.47.7 (2026-10-16), in `.fvmrc` and read by CI.
 - Confirm where `gen_l10n` writes its output in that version, and set the gitignore rule accordingly.
-- Confirm the pub workspace syntax (ADR-0003) works with the cache and `dart test` paths used above.
-- Measured 2026-10-16: the `check` job took 126 s (about 2.1 billed minutes) with warm Flutter and pub caches. Re-measure when drift and `build_runner` are added.
-- An alternative if the quota still binds: register the author's machine as a project runner (not counted against shared minutes).
+- ~~Confirm the pub workspace syntax (ADR-0003) works with the cache and `dart test` paths used above.~~ `check` passes on every PR with the workspace layout (ADR-0011).
+- Measured 2026-10-16: the `check` job took 126 s (about 2.1 billed minutes) with warm Flutter and pub caches. Quota no longer applies (ADR-0011); re-measure only if `build_runner` makes `check` slow.
+- ~~An alternative if the quota still binds: register the author's machine as a project runner.~~ Moot after the move to GitHub (ADR-0011).
+- Still open: where `gen_l10n` writes its output, and the matching gitignore rule. Decide when localization is added. The drift `build_runner` step is verified only in spike 003, not yet in `app`.

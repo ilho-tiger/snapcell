@@ -1,6 +1,6 @@
 # ADR-0008: Generation state machine and render-output lifecycle
 
-- Status: Proposed (depends on the open items in ADR-0006)
+- Status: Accepted (2026-10-17; the ADR-0006 open items it depended on are resolved by [spike 003](../spikes/003-foreground-service-render.md). The schema in ADR-0009 is still Proposed)
 - Date: 2026-10-15
 - Consolidates: ADR-0002 (Generation flow) and ADR-0006 (Render and resume, After rendering, Startup reconciliation)
 - Amends: ADR-0006 (adds one `failure` column to `generation_job`; see [ADR-0009](0009-data-model.md))
@@ -57,6 +57,13 @@ Handled by `StartupReconciler` (ADR-0002) before the UI accepts imports or gener
 | `failed` | Show the failure screen |
 
 A retry after a kill may duplicate one sheet in the gallery. This is accepted over a silently missing sheet (ADR-0006).
+
+`rendering` is also resumed without a user start, by two other paths (spike 003):
+
+- **System restart.** After a process kill, Android restarts the foreground service by itself (observed about 5 s later, with no UI). It resumes from the database exactly as above.
+- **Service timeout.** At the `dataSync` timeout the service is stopped mid-run and the job stays `rendering`. The next app start resumes it.
+
+Because of the system restart, a service run and `StartupReconciler` can both try to resume. **One runner per job:** the reconciler starts the service only when it is not already running. The window where a system restart lands between that check and the start is not verified, and two runners writing the same `p<n>.jpg.tmp` could corrupt a sheet. The implementation must close it (for example a per-sheet claim in the database) and test it.
 
 ## Render-output lifecycle
 
